@@ -1,4 +1,3 @@
-import React, { useMemo } from 'react';
 import * as MUS from '../music.js';
 
 // ---- icons ----
