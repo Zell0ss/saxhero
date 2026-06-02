@@ -1,8 +1,9 @@
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
+from db import get_db_connection
 from logger import setup_logger
 
 load_dotenv()
@@ -22,3 +23,16 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "saxhero"}
+
+
+@app.get("/api/db-health")
+def db_health():
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        conn.close()
+        return {"status": "ok", "db": "saxhero_db"}
+    except Exception as e:
+        log.error(f"DB health check failed: {e}")
+        raise HTTPException(status_code=503, detail=str(e))
