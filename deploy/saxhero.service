@@ -1,0 +1,17 @@
+[Unit]
+Description=Saxhero FastAPI backend
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/data/saxhero/backend
+EnvironmentFile=/data/saxhero/backend/.env
+ExecStart=/data/saxhero/backend/.venv/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
