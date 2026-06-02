@@ -13,3 +13,6 @@ frontend/dist/
 logs/
 *.log
 .venv
+
+# Design bundles (extracted content committed instead)
+docs-dev/**/*.zip
