@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Literal, Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from db import get_db_connection
 from parser import beats_to_base
 from logger import setup_logger
@@ -11,18 +11,18 @@ router = APIRouter(prefix="/api/songs")
 
 class EventIn(BaseModel):
     position: int
-    kind: str
+    kind: Literal['note', 'rest']
     pitch: Optional[str] = None
-    accidental: Optional[str] = None
+    accidental: Optional[Literal['sharp', 'flat']] = None
     octave: Optional[int] = None
     duration_beats: float = 1.0
 
 
 class SongIn(BaseModel):
     title: str = ""
-    bpm: int = 100
-    beats_per_bar: int = 4
-    stars: int = 1
+    bpm: int = Field(default=100, gt=0, le=300)
+    beats_per_bar: int = Field(default=4, gt=0, le=16)
+    stars: int = Field(default=1, ge=1, le=5)
     key_name: Optional[str] = None
     cover_image: Optional[str] = None
     events: Optional[list[EventIn]] = None
@@ -132,7 +132,26 @@ def update_song(song_id: int, data: SongIn):
                         (song_id, ev.position, ev.kind, ev.pitch, ev.accidental, ev.octave, ev.duration_beats),
                     )
             conn.commit()
-            return get_song(song_id)
+            # Return updated song using same cursor (no second connection)
+            cur.execute(
+                "SELECT id, title, bpm, beats_per_bar, stars, key_name, cover_image FROM songs WHERE id = %s",
+                (song_id,),
+            )
+            song = cur.fetchone()
+            cur.execute(
+                "SELECT position, kind, pitch, accidental, octave, duration_beats "
+                "FROM song_events WHERE song_id = %s ORDER BY position",
+                (song_id,),
+            )
+            song["events"] = _enrich_events(cur.fetchall())
+            return song
+    except HTTPException:
+        raise
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        log.error(f"update_song {song_id} failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid event data: {str(e)}")
     finally:
         if conn:
             conn.close()
