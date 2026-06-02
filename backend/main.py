@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 
 from db import get_db_connection
 from logger import setup_logger
+from songs import router as songs_router
 
 load_dotenv()
 log = setup_logger()
@@ -18,6 +19,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(songs_router)
 
 
 @app.get("/api/health")
