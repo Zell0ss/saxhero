@@ -1,0 +1,4 @@
+ALTER TABLE songs
+  ADD COLUMN stars TINYINT NOT NULL DEFAULT 1 AFTER beats_per_bar,
+  ADD COLUMN key_name VARCHAR(20) NULL AFTER stars,
+  ADD COLUMN cover_image MEDIUMTEXT NULL AFTER key_name;
