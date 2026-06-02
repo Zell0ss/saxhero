@@ -27,12 +27,15 @@ def health():
 
 @app.get("/api/db-health")
 def db_health():
+    conn = None
     try:
         conn = get_db_connection()
         with conn.cursor() as cur:
             cur.execute("SELECT 1")
-        conn.close()
         return {"status": "ok", "db": "saxhero_db"}
     except Exception as e:
         log.error(f"DB health check failed: {e}")
         raise HTTPException(status_code=503, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
