@@ -9,9 +9,18 @@ _LOG_PATH = Path(os.getenv("SAXHERO_LOG_PATH", "/data/saxhero/logs/saxhero.log")
 
 
 def setup_logger():
-    _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _json_enabled = True
+    try:
+        _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        _json_enabled = False
+
     logger.remove()
     logger.add(sys.stderr, level="INFO", format="{time:HH:mm:ss} | {level} | {message}")
+
+    if not _json_enabled:
+        logger.warning(f"Cannot create log dir {_LOG_PATH.parent} — JSON sink disabled")
+        return logger
 
     def _json_sink(message):
         record = message.record
