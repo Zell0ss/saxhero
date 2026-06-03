@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Bokeh } from './components/Ui.jsx';
+import Home from './components/Home.jsx';
 import SongList from './components/SongList.jsx';
+import PlayerPicker from './components/PlayerPicker.jsx';
 import Editor from './components/Editor.jsx';
 import Player from './components/Player.jsx';
 import * as MUS from './music.js';
@@ -36,7 +38,7 @@ function localToApi(ev, position) {
 
 export default function App() {
   const [songs, setSongs] = useState([]);
-  const [route, setRoute] = useState({ screen: "list", id: null });
+  const [route, setRoute] = useState({ screen: "home", id: null });
   const [currentSong, setCurrentSong] = useState(null);
   const [sideOpen, setSideOpen] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,21 +60,32 @@ export default function App() {
     }
   }, []);
 
-  const openPlayer = useCallback(async (id) => {
+  const openPlayer = useCallback(async (id, backTo = "list") => {
     setLoading(true);
     try {
       const song = await api.getSong(id);
       const localEvents = (song.events || []).map(apiToLocal);
       setCurrentSong({ ...song, events: localEvents });
-      setRoute({ screen: "player", id });
+      setRoute({ screen: "player", id, backTo });
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const goHome = useCallback(() => {
+    setCurrentSong(null);
+    setRoute({ screen: "home", id: null });
+  }, []);
+
   const goList = useCallback(() => {
     setCurrentSong(null);
     setRoute({ screen: "list", id: null });
+    api.getSongs().then(setSongs).catch(console.error);
+  }, []);
+
+  const goPlayerPicker = useCallback(() => {
+    setCurrentSong(null);
+    setRoute({ screen: "player-picker", id: null });
     api.getSongs().then(setSongs).catch(console.error);
   }, []);
 
@@ -119,14 +132,26 @@ export default function App() {
     );
   }
 
+  if (route.screen === "home") {
+    return <Home onEditor={goList} onPlayer={goPlayerPicker} />;
+  }
+
+  if (route.screen === "player-picker") {
+    return (
+      <div className="app">
+        <Bokeh />
+        <div className="view">
+          <PlayerPicker songs={songs} onPlay={(id) => openPlayer(id, "player-picker")} onBack={goHome} />
+        </div>
+      </div>
+    );
+  }
+
   if (route.screen === "player" && currentSong) {
+    const onBack = route.backTo === "player-picker" ? goPlayerPicker : goList;
     return (
       <div className="app player-mode">
-        <Player
-          key={currentSong.id}
-          song={currentSong}
-          onBack={goList}
-        />
+        <Player key={currentSong.id} song={currentSong} onBack={onBack} />
       </div>
     );
   }
