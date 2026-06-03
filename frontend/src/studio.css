@@ -541,3 +541,134 @@ input[type=range].brass::-moz-range-thumb { width: 16px; height: 16px; border-ra
   from { transform: scale(1.4); opacity: 0.3; }
   to   { transform: scale(1);   opacity: 1; }
 }
+
+/* =========================================================
+   PLAYER — Sax Hero scroller
+   ========================================================= */
+
+/* Outer wrapper used by App.jsx in player mode — no titlebar */
+.player-mode .titlebar { display: none; }
+.player-mode .view { height: 100vh; }
+
+/* Stage: fixed logical canvas, scaled to viewport */
+.player-stage {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1060px; height: 600px;
+  background: radial-gradient(130% 100% at 50% -10%, #15121a 0%, var(--bg) 58%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── topbar ── */
+.player-topbar {
+  flex: none; height: 50px;
+  display: flex; align-items: center; gap: 18px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.player-back {
+  width: 38px; height: 38px; border-radius: 11px; flex: none;
+  background: rgba(255,255,255,.04); border: 1px solid var(--line);
+  color: var(--ink-dim); display: grid; place-items: center;
+  transition: all .15s;
+}
+.player-back:hover { color: var(--ink); border-color: rgba(255,255,255,.26); }
+.player-back svg { width: 18px; height: 18px; }
+.player-title { font-size: 18px; font-weight: 600; color: var(--ink); letter-spacing: -.01em; }
+.player-meta  { font-size: 13px; color: var(--ink-faint); font-variant-numeric: tabular-nums; margin-left: auto; }
+
+/* ── scroll region ── */
+.player-scroll {
+  flex: 1; position: relative; overflow: hidden;
+}
+
+/* static staff lines (horizontal, behind notes, not in track) */
+.player-staff {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none; z-index: 1;
+}
+
+/* moving track — translateX animated */
+.player-track {
+  position: absolute; top: 0; left: 0;
+  will-change: transform; z-index: 2;
+}
+
+/* notation SVG inside track */
+.player-notation { display: block; overflow: visible; }
+
+/* note-name row inside track */
+.player-names {
+  position: absolute; top: 0; left: 0;
+}
+.player-name {
+  position: absolute;
+  font-size: 26px; font-weight: 700; line-height: 1;
+  color: rgba(243,239,230,.55);
+  transform: translateX(-50%);
+  letter-spacing: -.02em;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.player-name.active {
+  color: var(--gold);
+  font-size: 36px;
+  text-shadow: 0 0 24px rgba(233,196,106,.7);
+}
+.player-name sup { font-size: .55em; margin-left: 1px; }
+
+/* playhead — vertical gold line, fixed */
+.player-playhead {
+  position: absolute; top: 0; bottom: 0; width: 3px; border-radius: 2px;
+  background: linear-gradient(180deg,
+    transparent 0%, var(--gold) 15%,
+    #fff4d6 50%, var(--gold) 85%, transparent 100%);
+  box-shadow: 0 0 18px rgba(255,221,140,.8), 0 0 40px rgba(233,196,106,.36);
+  z-index: 5; pointer-events: none;
+}
+
+/* edge gradient fades */
+.player-mask-left {
+  position: absolute; top: 0; left: 0; bottom: 0; width: 130px;
+  background: linear-gradient(to right, var(--bg) 20%, transparent);
+  pointer-events: none; z-index: 4;
+}
+.player-mask-right {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 60px;
+  background: linear-gradient(to left, var(--bg) 0%, transparent);
+  pointer-events: none; z-index: 4;
+}
+
+/* countdown number */
+.player-countdown {
+  position: absolute; inset: 0; z-index: 10;
+  display: grid; place-items: center;
+  font-size: 130px; font-weight: 900; line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 0 60px rgba(233,196,106,.6);
+  animation: count-pop .12s ease-out;
+  pointer-events: none;
+}
+
+/* ── controls bar ── */
+.player-controls {
+  flex: none; height: 60px;
+  display: flex; align-items: center; gap: 24px;
+  padding: 0 24px;
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, transparent, rgba(8,7,10,.55));
+}
+.player-play {
+  flex: none; width: 52px; height: 52px; border-radius: 14px;
+  background: radial-gradient(120% 120% at 50% 0%, rgba(233,196,106,.18), rgba(233,196,106,.05));
+  border: 1.5px solid rgba(233,196,106,.55); color: var(--gold);
+  display: grid; place-items: center; transition: all .18s;
+}
+.player-play:hover { border-color: var(--gold); box-shadow: 0 0 24px -4px rgba(233,196,106,.5); }
+.player-play.on { background: radial-gradient(120% 120% at 50% 0%, rgba(233,196,106,.3), rgba(233,196,106,.08)); }
+.player-play svg { width: 26px; height: 26px; }
+.player-speed { display: flex; align-items: center; gap: 14px; flex: 1; max-width: 340px; }
+.player-speed .cap { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-faint); font-weight: 600; flex: none; }
+.player-speed .val { flex: none; width: 52px; text-align: right; font-weight: 700; font-size: 16px; color: var(--gold); font-variant-numeric: tabular-nums; }
