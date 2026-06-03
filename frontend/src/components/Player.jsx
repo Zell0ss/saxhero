@@ -134,7 +134,7 @@ function Names({ events, starts, activeIdx, totalBeats }) {
 
 /* ─── Player ─── */
 export default function Player({ song, onBack }) {
-  const events     = useMemo(() => song.events || [], [song.id]);
+  const events     = useMemo(() => song.events || [], [song.events]);
   const starts     = useMemo(() => cumStarts(events), [events]);
   const totalBeats = useMemo(() => MUS.totalBeats(events), [events]);
 
@@ -173,7 +173,7 @@ export default function Player({ song, onBack }) {
   useEffect(() => {
     const fit = () => {
       const s = Math.min(window.innerWidth / C.STAGE_W, window.innerHeight / C.STAGE_H) * 0.98;
-      setScale(Math.max(0.3, s));
+      setScale(Math.min(1.0, Math.max(0.3, s)));
     };
     fit();
     window.addEventListener('resize', fit);
@@ -232,6 +232,7 @@ export default function Player({ song, onBack }) {
   }, []);
 
   const togglePlay = () => {
+    if (totalRef.current <= 0) return;
     if (playingRef.current) {
       playingRef.current = false;
       setPlaying(false);
@@ -240,12 +241,18 @@ export default function Player({ song, onBack }) {
       setCountNum(0);
       return;
     }
-    if (audioRef.current) Audio.start();
-    beatRef.current = skipCountdown ? 0 : -4;
-    lastT.current  = 0;
-    prevCnRef.current = 0;
-    playingRef.current = true;
-    setPlaying(true);
+    const startNow = () => {
+      beatRef.current = skipCountdown ? 0 : -4;
+      lastT.current  = 0;
+      prevCnRef.current = 0;
+      playingRef.current = true;
+      setPlaying(true);
+    };
+    if (audioRef.current) {
+      Audio.start().then(startNow);
+    } else {
+      startNow();
+    }
   };
 
   const counting = playing && countNum > 0;
