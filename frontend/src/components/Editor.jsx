@@ -37,6 +37,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [speed, setSpeed] = useState(0.75);
   const [loop, setLoop] = useState(true);
   const [loopSel, setLoopSel] = useState(false);
+  const [countdownBeat, setCountdownBeat] = useState(null);
 
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
@@ -50,6 +51,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const bpmRef = useRef(song.bpm);
   const lastT = useRef(0);
   const prevActiveIdxRef = useRef(-1);
+  const countdownCancelRef = useRef(false);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
@@ -57,6 +59,37 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   useEffect(() => { selRef.current = sel; }, [sel]);
   useEffect(() => { eventsRef.current = events; }, [events]);
   useEffect(() => { bpmRef.current = song.bpm; }, [song.bpm]);
+
+  const startPlayback = () => {
+    const evs = eventsRef.current;
+    const st = cumStarts(evs);
+    let lo = 0;
+    if (loopSelRef.current && selRef.current >= 0) lo = st[selRef.current];
+    beatRef.current = lo;
+    prevActiveIdxRef.current = -1;
+    lastT.current = 0;
+    playingRef.current = true;
+    setPlaying(true);
+    setCountdownBeat(null);
+  };
+
+  const stopCountdown = () => {
+    countdownCancelRef.current = true;
+    setCountdownBeat(null);
+  };
+
+  const doCountdown = async () => {
+    countdownCancelRef.current = false;
+    await Audio.start();
+    for (let i = 1; i <= 4; i++) {
+      if (countdownCancelRef.current) return;
+      const intervalMs = (60 / (bpmRef.current * speedRef.current)) * 1000;
+      setCountdownBeat(i);
+      Audio.playClick();
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+    if (!countdownCancelRef.current) startPlayback();
+  };
 
   const starts = useMemo(() => cumStarts(events), [events]);
   const total = useMemo(() => MUS.totalBeats(events), [events]);
@@ -156,14 +189,16 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   }, []);
 
   const togglePlay = () => {
-    if (playingRef.current) { playingRef.current = false; setPlaying(false); return; }
-    const evs = eventsRef.current;
-    const st = cumStarts(evs);
-    let lo = 0;
-    if (loopSelRef.current && selRef.current >= 0) lo = st[selRef.current];
-    if (beatRef.current >= MUS.totalBeats(evs) - 1e-6) beatRef.current = lo;
-    if (loopSelRef.current && selRef.current >= 0) beatRef.current = lo;
-    lastT.current = 0; playingRef.current = true; setPlaying(true);
+    if (playingRef.current) {
+      playingRef.current = false;
+      setPlaying(false);
+      return;
+    }
+    if (countdownBeat !== null) {
+      stopCountdown();
+      return;
+    }
+    doCountdown();
   };
 
   const onUpload = (e) => {
@@ -245,6 +280,11 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
 
           <div className="staff-block">
             <div className="staff-frame">
+              {countdownBeat !== null && (
+                <div className="countdown-overlay">
+                  <span className="countdown-num" key={countdownBeat}>{countdownBeat}</span>
+                </div>
+              )}
               <div className="staff-scroll" ref={scrollRef}>
                 <div style={{ position: "relative", width: staffWidth(events), height: "100%", minHeight: 210 }}>
                   <StaffPreview events={events} beatsPerBar={song.beats_per_bar} selectedIdx={sel} activeIdx={activeIdx} onSelect={setSel} />
