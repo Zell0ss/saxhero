@@ -249,7 +249,7 @@ export default function Player({ song, onBack }) {
       setPlaying(true);
     };
     if (audioRef.current) {
-      Audio.start().then(startNow);
+      Audio.start().then(startNow).catch(() => startNow());
     } else {
       startNow();
     }
