@@ -501,3 +501,35 @@ input[type=range].brass::-moz-range-thumb { width: 16px; height: 16px; border-ra
 /* scrollbars (list) */
 .list-wrap::-webkit-scrollbar, .ed-side::-webkit-scrollbar { width: 9px; }
 .list-wrap::-webkit-scrollbar-thumb, .ed-side::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 5px; }
+
+/* =========================================================
+   COUNTDOWN OVERLAY
+   ========================================================= */
+.countdown-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: inherit;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.countdown-num {
+  font-size: 96px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 0 40px rgba(233, 196, 106, 0.6);
+  animation: count-pop 0.15s ease-out;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font);
+}
+
+@keyframes count-pop {
+  from { transform: scale(1.4); opacity: 0.3; }
+  to   { transform: scale(1);   opacity: 1; }
+}
