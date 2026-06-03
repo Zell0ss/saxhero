@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bokeh } from './components/Ui.jsx';
 import SongList from './components/SongList.jsx';
 import Editor from './components/Editor.jsx';
+import Player from './components/Player.jsx';
 import * as MUS from './music.js';
 import * as api from './api.js';
 
@@ -57,6 +58,18 @@ export default function App() {
     }
   }, []);
 
+  const openPlayer = useCallback(async (id) => {
+    setLoading(true);
+    try {
+      const song = await api.getSong(id);
+      const localEvents = (song.events || []).map(apiToLocal);
+      setCurrentSong({ ...song, events: localEvents });
+      setRoute({ screen: "player", id });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const goList = useCallback(() => {
     setCurrentSong(null);
     setRoute({ screen: "list", id: null });
@@ -106,6 +119,18 @@ export default function App() {
     );
   }
 
+  if (route.screen === "player" && currentSong) {
+    return (
+      <div className="app player-mode">
+        <Player
+          key={currentSong.id}
+          song={currentSong}
+          onBack={goList}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <Bokeh />
@@ -138,6 +163,7 @@ export default function App() {
           <SongList
             songs={songs}
             onOpen={openSong}
+            onPlay={openPlayer}
             onCreate={createSong}
             onDelete={deleteSong}
           />

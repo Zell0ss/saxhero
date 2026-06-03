@@ -33,7 +33,7 @@ function StarFilter({ value, onChange }) {
   );
 }
 
-export default function SongList({ songs, onOpen, onCreate, onDelete }) {
+export default function SongList({ songs, onOpen, onPlay, onCreate, onDelete }) {
   const [query, setQuery] = useState("");
   const [stars, setStars] = useState(0);
   const [field, setField] = useState("name");
@@ -103,8 +103,9 @@ export default function SongList({ songs, onOpen, onCreate, onDelete }) {
               <div key={song.id} className="card" onClick={() => onOpen(song.id)}>
                 <div className="cover"><Cover song={song} /></div>
                 <div className="row-actions" onClick={(e) => e.stopPropagation()}>
-                  <button className="icon-btn" onClick={() => onOpen(song.id)}><Icon.pencil /></button>
-                  <button className="icon-btn danger" onClick={() => onDelete(song.id)}><Icon.trash /></button>
+                  <button className="icon-btn" onClick={() => onPlay(song.id)} title="Practicar">▶</button>
+                  <button className="icon-btn" onClick={() => onOpen(song.id)} title="Editar"><Icon.pencil /></button>
+                  <button className="icon-btn danger" onClick={() => onDelete(song.id)} title="Borrar"><Icon.trash /></button>
                 </div>
                 <div className="body">
                   <div className="ttl">{song.title || "Sin título"}</div>
