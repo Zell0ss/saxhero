@@ -7,11 +7,16 @@ import { Icon } from './Ui.jsx';
 const C = {
   STAGE_W:    1060,
   STAGE_H:    600,
-  PPB:        150,   // px per beat
-  PLAYHEAD:   168,   // x of playhead inside stage
-  STEP_PX:    8,     // px per staff step
-  STAFF_BASE: 187,   // y of E4 (step 0)
-  NAME_Y:     265,   // y baseline for note names
+  PPB:        150,    // px per beat
+  PLAYHEAD:   168,    // x of playhead inside stage
+  STEP_PX:    8,      // px per staff step
+  STAFF_BASE: 187,    // y of E4 (step 0)
+  NAME_Y:     240,    // y baseline for note names (raised to fit matrix below)
+  COL_W:      146,    // width of fixed key-column on the left
+  MATRIX_TOP: 286,    // y of first row in the fingering matrix
+  ROW_PITCH:  24,     // vertical px between matrix rows
+  BAR_H:      14,     // height of each fingering bar
+  BAR_GAP:    5,      // horizontal margin inside each beat's bar
 };
 
 const yStep  = (s) => C.STAFF_BASE - s * C.STEP_PX;
@@ -43,7 +48,7 @@ function Staff() {
   return (
     <svg className="player-staff" width={C.STAGE_W} height={C.STAGE_H}>
       {lines.map((s) => (
-        <line key={s} x1={0} y1={yStep(s)} x2={C.STAGE_W} y2={yStep(s)}
+        <line key={s} x1={C.COL_W} y1={yStep(s)} x2={C.STAGE_W} y2={yStep(s)}
           stroke="rgba(255,255,255,.38)" strokeWidth="1" />
       ))}
     </svg>
@@ -126,6 +131,83 @@ function Names({ events, starts, activeIdx, totalBeats }) {
             {ev.letter}
             {ev.acc && <sup>{ev.acc === '#' ? '♯' : '♭'}</sup>}
           </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── fixed key column (left, shows active fingering) ─── */
+const COL_COLOR = { octave: 'var(--c-octave)', left: 'var(--c-left)', right: 'var(--c-right)' };
+
+function PlayerKeyColumn({ activeIdx, events }) {
+  const ev = activeIdx >= 0 ? events[activeIdx] : null;
+  const keys = (ev && !ev.isRest) ? MUS.fingering(ev) : [];
+  const on = (id) => keys.includes(id);
+  return (
+    <svg className="player-keycol" width={C.COL_W} height={C.STAGE_H}>
+      <line x1={C.COL_W / 2} y1={C.MATRIX_TOP - 10}
+            x2={C.COL_W / 2} y2={C.MATRIX_TOP + MUS.ROWS.length * C.ROW_PITCH + 10}
+            stroke="rgba(255,255,255,.06)" strokeWidth="2" />
+      {MUS.ROWS.map((row, i) => {
+        const cy = C.MATRIX_TOP + i * C.ROW_PITCH;
+        const color = COL_COLOR[row.group];
+        const lit = on(row.id);
+        const glow = lit ? { filter: `drop-shadow(0 0 7px ${color})` } : undefined;
+        if (row.id === 'O') {
+          return (
+            <path key="O" style={glow}
+              d={`M 84 ${cy - 12} q 16 1 15 13 q -1 12 -15 12 q 8 -7 6 -14 q -2 -6 -6 -11 z`}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" strokeLinejoin="round" />
+          );
+        }
+        if (row.pinky) {
+          return (
+            <rect key={row.id} style={glow}
+              x={C.COL_W / 2 - 20} y={cy - 7} width={40} height={14} rx={7}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+          );
+        }
+        if (row.bis) {
+          return (
+            <circle key={row.id} style={glow}
+              cx={C.COL_W / 2 + 14} cy={cy} r={7}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+          );
+        }
+        return (
+          <circle key={row.id} style={glow}
+            cx={C.COL_W / 2} cy={cy} r={10}
+            fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+        );
+      })}
+    </svg>
+  );
+}
+
+/* ─── moving fingering bars (inside track, scrolls with notes) ─── */
+function Bars({ events, starts, activeIdx, totalBeats }) {
+  const w = noteX(totalBeats) + C.PPB;
+  return (
+    <div className="player-bars" style={{ width: w, height: C.STAGE_H }}>
+      {events.map((ev, i) => {
+        if (ev.isRest) return null;
+        const keys = MUS.fingering(ev);
+        const left = noteX(starts[i]) + C.BAR_GAP;
+        const barW = Math.max(4, MUS.durBeats(ev) * C.PPB - C.BAR_GAP * 2);
+        const active = i === activeIdx;
+        return MUS.ROWS.map((row, ri) =>
+          keys.includes(row.id) ? (
+            <div key={`${i}-${row.id}`}
+              className={'player-bar' + (active ? ' active' : '')}
+              style={{
+                left, width: barW,
+                top: C.MATRIX_TOP + ri * C.ROW_PITCH - C.BAR_H / 2,
+                height: C.BAR_H,
+                background: COL_COLOR[row.group],
+              }}
+            />
+          ) : null
         );
       })}
     </div>
@@ -280,7 +362,11 @@ export default function Player({ song, onBack }) {
             beatsPerBar={song.beats_per_bar} totalBeats={totalBeats}
           />
           <Names events={events} starts={starts} activeIdx={activeIdx} totalBeats={totalBeats} />
+          <Bars events={events} starts={starts} activeIdx={activeIdx} totalBeats={totalBeats} />
         </div>
+
+        {/* fixed key column — outside track so it doesn't scroll */}
+        <PlayerKeyColumn activeIdx={activeIdx} events={events} />
 
         {/* playhead */}
         <div className="player-playhead" style={{ left: C.PLAYHEAD }} />
