@@ -281,8 +281,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           <div className="staff-block">
             <div className="staff-frame">
               {countdownBeat !== null && (
-                <div className="countdown-overlay">
-                  <span className="countdown-num" key={countdownBeat}>{countdownBeat}</span>
+                <div className="countdown-overlay" key={countdownBeat}>
+                  <span className="countdown-num">{countdownBeat}</span>
                 </div>
               )}
               <div className="staff-scroll" ref={scrollRef}>
@@ -344,8 +344,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           </div>
 
           <div className="playbar">
-            <button className={"play-btn" + (playing ? " on" : "")} onClick={togglePlay}>
-              {playing ? <Icon.pause /> : <Icon.play />}
+            <button className={"play-btn" + ((playing || countdownBeat !== null) ? " on" : "")} onClick={togglePlay}>
+              {(playing || countdownBeat !== null) ? <Icon.pause /> : <Icon.play />}
             </button>
             <div className="beatdots">
               {Array.from({ length: song.beats_per_bar }).map((_, i) => (
