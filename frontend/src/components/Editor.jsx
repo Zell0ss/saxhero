@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
 import * as Audio from '../audio.js';
@@ -63,9 +63,12 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const startPlayback = () => {
     const evs = eventsRef.current;
     const st = cumStarts(evs);
-    let lo = 0;
-    if (loopSelRef.current && selRef.current >= 0) lo = st[selRef.current];
-    beatRef.current = lo;
+    const tot = MUS.totalBeats(evs);
+    if (loopSelRef.current && selRef.current >= 0) {
+      beatRef.current = st[selRef.current];
+    } else if (beatRef.current >= tot - 1e-6) {
+      beatRef.current = 0;
+    }
     prevActiveIdxRef.current = -1;
     lastT.current = 0;
     playingRef.current = true;
@@ -94,9 +97,22 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const starts = useMemo(() => cumStarts(events), [events]);
   const total = useMemo(() => MUS.totalBeats(events), [events]);
 
+  const barStarts = useMemo(() => {
+    const set = new Set();
+    let acc = 0;
+    events.forEach((ev, i) => {
+      acc += MUS.durBeats(ev);
+      if (song.beats_per_bar > 0 && acc >= song.beats_per_bar - 1e-6) {
+        acc = 0;
+        set.add(i + 1);
+      }
+    });
+    return set;
+  }, [events, song.beats_per_bar]);
+
   const activeIdx = useMemo(
-    () => findActiveIdx(playBeat, events, starts),
-    [playBeat, events, starts]
+    () => playing ? findActiveIdx(playBeat, events, starts) : -1,
+    [playing, playBeat, events, starts]
   );
 
   const onText = (v) => {
@@ -304,15 +320,26 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
               {events.map((ev, i) => {
                 const cls = "pill" + (i === sel ? " sel" : "") + (i === activeIdx ? " active" : "") + (ev.isRest ? " rest" : "");
                 return (
-                  <button key={i} className={cls} onClick={() => setSel(i === sel ? -1 : i)}>
-                    {ev.dotted && <span className="badge">·</span>}
-                    {ev.triplet && <span className="badge" style={{ right: ev.dotted ? 12 : -6 }}>3</span>}
-                    {ev.isRest
-                      ? <span className="pname" style={{ color: "var(--ink-faint)", fontFamily: "var(--music)", fontSize: 22 }}>{MUS.restGlyph(ev)}</span>
-                      : <span className="pname">{ev.letter}{ev.acc && <sup>{ev.acc === "#" ? "♯" : "♭"}</sup>}</span>}
-                    <span className="pglyph">{MUS.durGlyph(ev)}</span>
-                    <span className="pdur">{ev.isRest ? "silencio" : MUS.LADDER[MUS.LADDER_INDEX[ev.base ?? "4"]].name.slice(0, 7)}</span>
-                  </button>
+                  <Fragment key={i}>
+                    {i > 0 && barStarts.has(i) && <div className="tl-bar-sep" />}
+                    <button className={cls} onClick={() => {
+                      const newSel = i === sel ? -1 : i;
+                      setSel(newSel);
+                      if (!playingRef.current && countdownBeat === null) {
+                        const pos = newSel >= 0 ? starts[newSel] : 0;
+                        beatRef.current = pos;
+                        setPlayBeat(pos);
+                      }
+                    }}>
+                      {ev.dotted && <span className="badge">·</span>}
+                      {ev.triplet && <span className="badge" style={{ right: ev.dotted ? 12 : -6 }}>3</span>}
+                      {ev.isRest
+                        ? <span className="pname" style={{ color: "var(--ink-faint)", fontFamily: "var(--music)", fontSize: 22 }}>{MUS.restGlyph(ev)}</span>
+                        : <span className="pname">{ev.letter}{ev.acc && <sup>{ev.acc === "#" ? "♯" : "♭"}</sup>}</span>}
+                      <span className="pglyph">{MUS.durGlyph(ev)}</span>
+                      <span className="pdur">{ev.isRest ? "silencio" : MUS.LADDER[MUS.LADDER_INDEX[ev.base ?? "4"]].name.slice(0, 7)}</span>
+                    </button>
+                  </Fragment>
                 );
               })}
               {events.length === 0 && <div style={{ color: "var(--ink-faint)", fontSize: 13, padding: "22px 4px" }}>Sin eventos todavía.</div>}

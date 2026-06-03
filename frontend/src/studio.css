@@ -502,6 +502,14 @@ input[type=range].brass::-moz-range-thumb { width: 16px; height: 16px; border-ra
 .list-wrap::-webkit-scrollbar, .ed-side::-webkit-scrollbar { width: 9px; }
 .list-wrap::-webkit-scrollbar-thumb, .ed-side::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 5px; }
 
+.tl-bar-sep {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+  margin: 8px 3px;
+}
+
 /* =========================================================
    COUNTDOWN OVERLAY
    ========================================================= */
