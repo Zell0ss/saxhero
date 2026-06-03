@@ -106,6 +106,7 @@ export function reconcile(text, oldEvents) {
 export const ROWS = [
   { id: "O",  group: "octave", label: "Octava" },
   { id: "L1", group: "left",   label: "Izq. índice" },
+  { id: "LB", group: "left",   bis: true, label: "Bis (Bb)" },
   { id: "L2", group: "left",   label: "Izq. medio" },
   { id: "L3", group: "left",   label: "Izq. anular" },
   { id: "L4", group: "left",   pinky: true, label: "Izq. meñique" },
@@ -121,7 +122,7 @@ export const SHAPE = {
   E: ["L1","L2","L3","R1","R2"], F: ["L1","L2","L3","R1"],
   "F#": ["L1","L2","L3","R2"], Gb: ["L1","L2","L3","R2"],
   G: ["L1","L2","L3"], "G#": ["L1","L2","L3"], Ab: ["L1","L2","L3"],
-  A: ["L1","L2"], "A#": ["L1","R1"], Bb: ["L1","R1"], B: ["L1"],
+  A: ["L1","L2"], "A#": ["L1","LB"], Bb: ["L1","LB"], B: ["L1"],
 };
 
 export function fingering(ev) {
