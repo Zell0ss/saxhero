@@ -29,8 +29,7 @@ export function playNote(ev, durationSec) {
   const durTone = Math.max(0.05, durationSec * 0.88);
   try {
     synth.triggerAttackRelease(pitch, durTone);
-    // eslint-disable-next-line no-unused-vars
-  } catch (_) {
+  } catch {
     // invalid pitch — ignore
   }
 }
