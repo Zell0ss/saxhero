@@ -38,6 +38,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [loop, setLoop] = useState(true);
   const [loopSel, setLoopSel] = useState(false);
   const [countdownBeat, setCountdownBeat] = useState(null);
+  const [skipCountdown, setSkipCountdown] = useState(false);
 
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
@@ -212,6 +213,10 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     }
     if (countdownBeat !== null) {
       stopCountdown();
+      return;
+    }
+    if (skipCountdown) {
+      Audio.start().then(startPlayback);
       return;
     }
     doCountdown();
@@ -391,6 +396,9 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
             </button>
             <button className={"loop-btn" + (loop ? " on" : "")} onClick={() => setLoop((v) => !v)}>
               <Icon.loop /> Loop
+            </button>
+            <button className={"loop-btn" + (skipCountdown ? " on" : "")} onClick={() => setSkipCountdown((v) => !v)} title="Omitir cuenta atrás">
+              1-2-3-4
             </button>
             <button className={"loop-btn" + (sideOpen ? " on" : "")} onClick={onToggleSide}>
               <Icon.panel />
