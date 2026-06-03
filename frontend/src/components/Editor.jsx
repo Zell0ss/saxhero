@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
+import * as Audio from '../audio.js';
+
+function findActiveIdx(beat, events, starts) {
+  for (let i = 0; i < events.length; i++) {
+    if (beat >= starts[i] - 1e-6 && beat < starts[i] + MUS.durBeats(events[i]) - 1e-6) return i;
+  }
+  return -1;
+}
 
 function cumStarts(events) {
   let c = 0;
@@ -41,6 +49,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const eventsRef = useRef(events);
   const bpmRef = useRef(song.bpm);
   const lastT = useRef(0);
+  const prevActiveIdxRef = useRef(-1);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
@@ -52,12 +61,10 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const starts = useMemo(() => cumStarts(events), [events]);
   const total = useMemo(() => MUS.totalBeats(events), [events]);
 
-  const activeIdx = useMemo(() => {
-    for (let i = 0; i < events.length; i++) {
-      if (playBeat >= starts[i] - 1e-6 && playBeat < starts[i] + MUS.durBeats(events[i]) - 1e-6) return i;
-    }
-    return -1;
-  }, [playBeat, events, starts]);
+  const activeIdx = useMemo(
+    () => findActiveIdx(playBeat, events, starts),
+    [playBeat, events, starts]
+  );
 
   const onText = (v) => {
     setText(v);
@@ -116,10 +123,24 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
         const bps = (bpmRef.current / 60) * speedRef.current;
         beatRef.current += dt * bps;
         if (beatRef.current >= hi - 1e-6) {
-          if (loopRef.current || loopSelRef.current) beatRef.current = lo;
-          else { beatRef.current = lo; playingRef.current = false; setPlaying(false); }
+          if (loopRef.current || loopSelRef.current) {
+            beatRef.current = lo;
+            prevActiveIdxRef.current = -1;
+          } else {
+            beatRef.current = lo;
+            playingRef.current = false;
+            setPlaying(false);
+          }
         }
         if (beatRef.current < lo) beatRef.current = lo;
+        const newIdx = findActiveIdx(beatRef.current, evs, st);
+        if (newIdx !== prevActiveIdxRef.current) {
+          prevActiveIdxRef.current = newIdx;
+          if (newIdx >= 0 && !evs[newIdx].isRest) {
+            const durSec = MUS.durBeats(evs[newIdx]) * 60 / (bpmRef.current * speedRef.current);
+            Audio.playNote(evs[newIdx], durSec);
+          }
+        }
         setPlayBeat(beatRef.current);
         const sc = scrollRef.current;
         if (sc) {
