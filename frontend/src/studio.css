@@ -617,7 +617,7 @@ input[type=range].brass::-moz-range-thumb { width: 16px; height: 16px; border-ra
   font-size: 36px;
   text-shadow: 0 0 24px rgba(233,196,106,.7);
 }
-.player-name sup { font-size: .55em; margin-left: 1px; }
+.player-name sup { font-size: .72em; margin-left: 2px; }
 
 /* playhead — vertical gold line, fixed */
 .player-playhead {
