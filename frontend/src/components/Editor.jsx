@@ -39,6 +39,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [loopSel, setLoopSel] = useState(false);
   const [countdownBeat, setCountdownBeat] = useState(null);
   const [skipCountdown, setSkipCountdown] = useState(false);
+  const [metro, setMetro] = useState(false);
 
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
@@ -53,6 +54,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const lastT = useRef(0);
   const prevActiveIdxRef = useRef(-1);
   const countdownCancelRef = useRef(false);
+  const metroRef = useRef(false);
+  const prevBeatFloorRef = useRef(-1);
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
@@ -60,6 +63,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   useEffect(() => { selRef.current = sel; }, [sel]);
   useEffect(() => { eventsRef.current = events; }, [events]);
   useEffect(() => { bpmRef.current = song.bpm; }, [song.bpm]);
+  useEffect(() => { metroRef.current = metro; }, [metro]);
 
   const startPlayback = () => {
     const evs = eventsRef.current;
@@ -71,6 +75,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
       beatRef.current = 0;
     }
     prevActiveIdxRef.current = -1;
+    prevBeatFloorRef.current = -1;
     lastT.current = 0;
     playingRef.current = true;
     setPlaying(true);
@@ -183,10 +188,15 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           }
         }
         if (beatRef.current < lo) beatRef.current = lo;
+        const floor = Math.floor(beatRef.current);
+        if (floor !== prevBeatFloorRef.current) {
+          prevBeatFloorRef.current = floor;
+          if (metroRef.current && playingRef.current) Audio.playClick();
+        }
         const newIdx = findActiveIdx(beatRef.current, evs, st);
         if (newIdx !== prevActiveIdxRef.current) {
           prevActiveIdxRef.current = newIdx;
-          if (newIdx >= 0 && !evs[newIdx].isRest) {
+          if (newIdx >= 0 && !evs[newIdx].isRest && playingRef.current) {
             const durSec = MUS.durBeats(evs[newIdx]) * 60 / (bpmRef.current * speedRef.current);
             Audio.playNote(evs[newIdx], durSec);
           }
@@ -396,6 +406,9 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
             </button>
             <button className={"loop-btn" + (loop ? " on" : "")} onClick={() => setLoop((v) => !v)}>
               <Icon.loop /> Loop
+            </button>
+            <button className={"loop-btn" + (metro ? " on" : "")} onClick={() => setMetro((v) => !v)} title="Metrónomo">
+              ♩ Metro
             </button>
             <button className={"loop-btn" + (skipCountdown ? " on" : "")} onClick={() => setSkipCountdown((v) => !v)} title="Omitir cuenta atrás">
               1-2-3-4

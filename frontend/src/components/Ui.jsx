@@ -62,6 +62,9 @@ export function KeyColumn({ keys = [], width = 120 }) {
         if (row.pinky) {
           return <rect key={row.id} x={cx - 16} y={cy - 7} width="32" height="14" rx="7" fill={fill} stroke={stroke} strokeWidth="2.4" style={style} />;
         }
+        if (row.bis) {
+          return <circle key={row.id} cx={cx + 14} cy={cy} r="7" fill={fill} stroke={stroke} strokeWidth="2.4" style={style} />;
+        }
         return <circle key={row.id} cx={cx} cy={cy} r="11" fill={fill} stroke={stroke} strokeWidth="2.4" style={style} />;
       })}
     </svg>

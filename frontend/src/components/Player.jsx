@@ -5,18 +5,18 @@ import { Icon } from './Ui.jsx';
 
 /* ─── geometry ─── */
 const C = {
-  STAGE_W:    1060,
-  STAGE_H:    600,
-  PPB:        150,    // px per beat
-  PLAYHEAD:   168,    // x of playhead inside stage
-  STEP_PX:    8,      // px per staff step
-  STAFF_BASE: 187,    // y of E4 (step 0)
-  NAME_Y:     240,    // y baseline for note names (raised to fit matrix below)
-  COL_W:      146,    // width of fixed key-column on the left
-  MATRIX_TOP: 286,    // y of first row in the fingering matrix
-  ROW_PITCH:  24,     // vertical px between matrix rows
-  BAR_H:      14,     // height of each fingering bar
-  BAR_GAP:    5,      // horizontal margin inside each beat's bar
+  STAGE_W:    2800,
+  STAGE_H:    1280,
+  PPB:        320,    // px per beat
+  PLAYHEAD:   350,    // x of playhead inside stage
+  STEP_PX:    17,     // px per staff step
+  STAFF_BASE: 390,    // y of E4 (step 0)
+  NAME_Y:     520,    // y baseline for note names
+  COL_W:      300,    // width of fixed key-column on the left
+  MATRIX_TOP: 610,    // y of first row in the fingering matrix
+  ROW_PITCH:  44,     // vertical px between matrix rows
+  BAR_H:      26,     // height of each fingering bar
+  BAR_GAP:    10,     // horizontal margin inside each beat's bar
 };
 
 const yStep  = (s) => C.STAFF_BASE - s * C.STEP_PX;
@@ -49,7 +49,7 @@ function Staff() {
     <svg className="player-staff" width={C.STAGE_W} height={C.STAGE_H}>
       {lines.map((s) => (
         <line key={s} x1={C.COL_W} y1={yStep(s)} x2={C.STAGE_W} y2={yStep(s)}
-          stroke="rgba(255,255,255,.38)" strokeWidth="1" />
+          stroke="rgba(255,255,255,.38)" strokeWidth="2" />
       ))}
     </svg>
   );
@@ -67,7 +67,7 @@ function Notation({ events, starts, activeIdx, beatsPerBar, totalBeats }) {
       {/* barlines */}
       {bars.map((b) => (
         <line key={b} x1={noteX(b)} y1={yStep(8)} x2={noteX(b)} y2={yStep(0)}
-          stroke="rgba(255,255,255,.18)" strokeWidth="1" />
+          stroke="rgba(255,255,255,.18)" strokeWidth="2" />
       ))}
       {/* notes */}
       {events.map((ev, i) => {
@@ -81,31 +81,31 @@ function Notation({ events, starts, activeIdx, beatsPerBar, totalBeats }) {
           <g key={i}>
             {/* ledger lines */}
             {ledgers(step).map((s) => (
-              <line key={s} x1={x - 13} y1={yStep(s)} x2={x + 13} y2={yStep(s)}
-                stroke="rgba(255,255,255,.65)" strokeWidth="1.4" />
+              <line key={s} x1={x - 28} y1={yStep(s)} x2={x + 28} y2={yStep(s)}
+                stroke="rgba(255,255,255,.65)" strokeWidth="3" />
             ))}
             {/* stem */}
             <line
-              x1={su ? x + 8 : x - 8}
-              y1={cy + (su ? -2 : 2)}
-              x2={su ? x + 8 : x - 8}
-              y2={su ? cy - 38 : cy + 38}
+              x1={su ? x + 17 : x - 17}
+              y1={cy + (su ? -4 : 4)}
+              x2={su ? x + 17 : x - 17}
+              y2={su ? cy - 80 : cy + 80}
               stroke={active ? 'var(--gold)' : '#fff'}
-              strokeWidth="1.7"
+              strokeWidth="3.5"
             />
             {/* notehead */}
             <ellipse
               cx={x} cy={cy}
-              rx={active ? 11.5 : 8.6} ry={active ? 8.2 : 6.2}
+              rx={active ? 24 : 18} ry={active ? 17 : 13}
               transform={`rotate(-22 ${x} ${cy})`}
               fill={active ? 'var(--gold)' : '#fff'}
-              style={active ? { filter: 'drop-shadow(0 0 9px rgba(233,196,106,.9))' } : undefined}
+              style={active ? { filter: 'drop-shadow(0 0 18px rgba(233,196,106,.9))' } : undefined}
             />
             {/* accidental */}
             {ev.acc && (
-              <text x={x - 20} y={cy + 6}
+              <text x={x - 43} y={cy + 13}
                 fill={active ? 'var(--gold)' : 'var(--gold-deep)'}
-                style={{ fontFamily: 'var(--music)', fontSize: 14 }}>
+                style={{ fontFamily: 'var(--music)', fontSize: 30 }}>
                 {ev.acc === '#' ? '♯' : '♭'}
               </text>
             )}
@@ -146,39 +146,39 @@ function PlayerKeyColumn({ activeIdx, events }) {
   const on = (id) => keys.includes(id);
   return (
     <svg className="player-keycol" width={C.COL_W} height={C.STAGE_H}>
-      <line x1={C.COL_W / 2} y1={C.MATRIX_TOP - 10}
-            x2={C.COL_W / 2} y2={C.MATRIX_TOP + MUS.ROWS.length * C.ROW_PITCH + 10}
-            stroke="rgba(255,255,255,.06)" strokeWidth="2" />
+      <line x1={C.COL_W / 2} y1={C.MATRIX_TOP - 20}
+            x2={C.COL_W / 2} y2={C.MATRIX_TOP + MUS.ROWS.length * C.ROW_PITCH + 20}
+            stroke="rgba(255,255,255,.06)" strokeWidth="4" />
       {MUS.ROWS.map((row, i) => {
         const cy = C.MATRIX_TOP + i * C.ROW_PITCH;
         const color = COL_COLOR[row.group];
         const lit = on(row.id);
-        const glow = lit ? { filter: `drop-shadow(0 0 7px ${color})` } : undefined;
+        const glow = lit ? { filter: `drop-shadow(0 0 14px ${color})` } : undefined;
         if (row.id === 'O') {
           return (
             <path key="O" style={glow}
-              d={`M 84 ${cy - 12} q 16 1 15 13 q -1 12 -15 12 q 8 -7 6 -14 q -2 -6 -6 -11 z`}
-              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" strokeLinejoin="round" />
+              d={`M ${C.COL_W / 2 + 22} ${cy - 26} q 32 2 30 26 q -2 26 -30 26 q 16 -14 12 -28 q -4 -12 -12 -22 z`}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="4.5" strokeLinejoin="round" />
           );
         }
         if (row.pinky) {
           return (
             <rect key={row.id} style={glow}
-              x={C.COL_W / 2 - 20} y={cy - 7} width={40} height={14} rx={7}
-              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+              x={C.COL_W / 2 - 43} y={cy - 15} width={85} height={30} rx={15}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="4.5" />
           );
         }
         if (row.bis) {
           return (
             <circle key={row.id} style={glow}
-              cx={C.COL_W / 2 + 14} cy={cy} r={7}
-              fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+              cx={C.COL_W / 2 + 30} cy={cy} r={15}
+              fill={lit ? color : 'none'} stroke={color} strokeWidth="4.5" />
           );
         }
         return (
           <circle key={row.id} style={glow}
-            cx={C.COL_W / 2} cy={cy} r={10}
-            fill={lit ? color : 'none'} stroke={color} strokeWidth="2.2" />
+            cx={C.COL_W / 2} cy={cy} r={21}
+            fill={lit ? color : 'none'} stroke={color} strokeWidth="4.5" />
         );
       })}
     </svg>
@@ -300,7 +300,7 @@ export default function Player({ song, onBack }) {
       if (ai !== activeRef.current) {
         activeRef.current = ai;
         setActiveIdx(ai);
-        if (ai >= 0 && !eventsRef.current[ai].isRest && audioRef.current) {
+        if (ai >= 0 && !eventsRef.current[ai].isRest && audioRef.current && playingRef.current) {
           const durSec = MUS.durBeats(eventsRef.current[ai]) * 60 / (bpmRef.current * speedRef.current);
           Audio.playNote(eventsRef.current[ai], durSec);
         }
