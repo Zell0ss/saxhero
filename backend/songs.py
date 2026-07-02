@@ -86,6 +86,7 @@ def create_song(data: SongIn):
             )
             song_id = cur.lastrowid
             conn.commit()
+            log.info(f"create_song {song_id} title={data.title!r}")
             return _get_song_or_404(cur, song_id)
     finally:
         if conn:
@@ -132,6 +133,7 @@ def update_song(song_id: int, data: SongIn):
                         (song_id, ev.position, ev.kind, ev.pitch, ev.accidental, ev.octave, ev.duration_beats),
                     )
             conn.commit()
+            log.info(f"update_song {song_id} title={data.title!r} events={len(data.events or [])}")
             # Return updated song using same cursor (no second connection)
             cur.execute(
                 "SELECT id, title, bpm, beats_per_bar, stars, key_name, cover_image FROM songs WHERE id = %s",
@@ -166,6 +168,7 @@ def delete_song(song_id: int):
             _get_song_or_404(cur, song_id)
             cur.execute("DELETE FROM songs WHERE id = %s", (song_id,))
             conn.commit()
+            log.info(f"delete_song {song_id}")
     finally:
         if conn:
             conn.close()

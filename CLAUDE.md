@@ -140,9 +140,11 @@ Input format: `C E G c | A, F# -`
 |---|---|
 | 0 — Andamiaje | ✅ |
 | 1 — Datos + Editor (CRUD, pill timeline, pentagrama preview) | ✅ |
-| 2 — Audio + ajuste a oído (Tone.js, bucle+nudge, metrónomo) | ⏳ next |
-| 3 — Player Sax Hero (scroller D→I, móvil, slider velocidad) | ⏳ |
-| 4 — Digitaciones (tabla alto, carriles+colores Saxplained) | ⏳ |
+| 2 — Audio + ajuste a oído (Tone.js, bucle+nudge, metrónomo) | ✅ |
+| 3 — Player Sax Hero (scroller D→I, móvil, slider velocidad) | ✅ |
+| 4 — Digitaciones (tabla alto, carriles+colores Saxplained) | ✅ |
+
+**Proyecto en estado STABLE** — todas las fases completas, sin trabajo pendiente. Próximo paso: uso real y feedback.
 
 ---
 
