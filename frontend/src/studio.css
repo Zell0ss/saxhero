@@ -4,6 +4,7 @@
    warm ink, Sora, bokeh, sax key glyph colours.
    ============================================================ */
 :root {
+  color-scheme: only light;
   --bg: #060607;
   --card-1: #100f12;
   --card-2: #0a090c;
