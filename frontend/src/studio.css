@@ -466,8 +466,9 @@ input[type=range].brass::-moz-range-thumb { width: 16px; height: 16px; border-ra
   flex: none; display: inline-flex; align-items: center; gap: 9px; height: 46px; padding: 0 18px; border-radius: 13px; font-size: 13.5px; font-weight: 600;
   background: rgba(255,255,255,0.04); border: 1.5px solid var(--line); color: var(--ink-dim); transition: all 0.18s;
 }
-.loop-btn:hover { border-color: rgba(255,255,255,0.26); color: var(--ink); }
+.loop-btn:hover:not(:disabled) { border-color: rgba(255,255,255,0.26); color: var(--ink); }
 .loop-btn.on { color: var(--gold); border-color: rgba(233,196,106,0.6); background: radial-gradient(120% 120% at 50% 0%, rgba(233,196,106,0.16), rgba(233,196,106,0.04)); box-shadow: 0 0 22px -6px rgba(233,196,106,0.5); }
+.loop-btn:disabled { opacity: 0.3; cursor: default; }
 .loop-btn svg { width: 18px; height: 18px; }
 
 /* =========================================================

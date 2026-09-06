@@ -40,6 +40,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [countdownBeat, setCountdownBeat] = useState(null);
   const [skipCountdown, setSkipCountdown] = useState(false);
   const [metro, setMetro] = useState(false);
+  const [canUndo, setCanUndo] = useState(false);
 
   const fileRef = useRef(null);
   const scrollRef = useRef(null);
@@ -50,6 +51,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const loopSelRef = useRef(loopSel);
   const selRef = useRef(sel);
   const eventsRef = useRef(events);
+  const textRef = useRef(text);
+  const undoStackRef = useRef([]);
   const bpmRef = useRef(song.bpm);
   const lastT = useRef(0);
   const prevActiveIdxRef = useRef(-1);
@@ -62,8 +65,18 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   useEffect(() => { loopSelRef.current = loopSel; }, [loopSel]);
   useEffect(() => { selRef.current = sel; }, [sel]);
   useEffect(() => { eventsRef.current = events; }, [events]);
+  useEffect(() => { textRef.current = text; }, [text]);
   useEffect(() => { bpmRef.current = song.bpm; }, [song.bpm]);
   useEffect(() => { metroRef.current = metro; }, [metro]);
+
+  const wasSavingRef = useRef(saving);
+  useEffect(() => {
+    if (wasSavingRef.current && !saving) {
+      undoStackRef.current = [];
+      setCanUndo(false);
+    }
+    wasSavingRef.current = saving;
+  }, [saving]);
 
   const startPlayback = () => {
     const evs = eventsRef.current;
@@ -103,6 +116,16 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const starts = useMemo(() => cumStarts(events), [events]);
   const total = useMemo(() => MUS.totalBeats(events), [events]);
 
+  const selectAndSeek = (i) => {
+    const newSel = i === sel ? -1 : i;
+    setSel(newSel);
+    if (!playingRef.current && countdownBeat === null) {
+      const pos = newSel >= 0 ? starts[newSel] : 0;
+      beatRef.current = pos;
+      setPlayBeat(pos);
+    }
+  };
+
   const barStarts = useMemo(() => {
     const set = new Set();
     let acc = 0;
@@ -121,7 +144,23 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     [playing, playBeat, events, starts]
   );
 
+  const pushUndo = () => {
+    undoStackRef.current.push({ text: textRef.current, events: eventsRef.current });
+    setCanUndo(true);
+  };
+
+  const undo = () => {
+    const prev = undoStackRef.current.pop();
+    if (!prev) return;
+    setCanUndo(undoStackRef.current.length > 0);
+    setText(prev.text);
+    setEvents(prev.events);
+    onPatch({ strip: prev.text, events: prev.events });
+    if (selRef.current >= prev.events.length) setSel(prev.events.length - 1);
+  };
+
   const onText = (v) => {
+    pushUndo();
     setText(v);
     const ev = MUS.reconcile(v, eventsRef.current);
     setEvents(ev);
@@ -130,6 +169,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   };
 
   const applyEvents = useCallback((next) => {
+    pushUndo();
     setEvents(next);
     const s = MUS.serialize(next, song.beats_per_bar);
     setText(s);
@@ -291,6 +331,10 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           <input ref={fileRef} type="file" accept="image/*" hidden onChange={onUpload} />
         </div>
 
+        <button className="loop-btn" onClick={undo} disabled={!canUndo} style={{ marginLeft: 8 }} title="Deshacer último cambio">
+          <Icon.undo /> Deshacer
+        </button>
+
         <button className={"btn-gold" + (saving ? " on" : "")} onClick={onSave} disabled={saving} style={{ marginLeft: 8 }}>
           <Icon.save /> {saving ? "Guardando…" : "Guardar"}
         </button>
@@ -318,7 +362,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
               )}
               <div className="staff-scroll" ref={scrollRef}>
                 <div style={{ position: "relative", width: staffWidth(events), height: "100%", minHeight: 210 }}>
-                  <StaffPreview events={events} beatsPerBar={song.beats_per_bar} selectedIdx={sel} activeIdx={activeIdx} onSelect={setSel} />
+                  <StaffPreview events={events} beatsPerBar={song.beats_per_bar} selectedIdx={sel} activeIdx={activeIdx} onSelect={selectAndSeek} />
                   {events.length > 0 && <div className="staff-playhead" style={{ left: beatToX(playBeat) }} />}
                 </div>
               </div>
@@ -337,15 +381,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
                 return (
                   <Fragment key={i}>
                     {i > 0 && barStarts.has(i) && <div className="tl-bar-sep" />}
-                    <button className={cls} onClick={() => {
-                      const newSel = i === sel ? -1 : i;
-                      setSel(newSel);
-                      if (!playingRef.current && countdownBeat === null) {
-                        const pos = newSel >= 0 ? starts[newSel] : 0;
-                        beatRef.current = pos;
-                        setPlayBeat(pos);
-                      }
-                    }}>
+                    <button className={cls} onClick={() => selectAndSeek(i)}>
                       {ev.dotted && <span className="badge">·</span>}
                       {ev.triplet && <span className="badge" style={{ right: ev.dotted ? 12 : -6 }}>3</span>}
                       {ev.isRest
