@@ -188,3 +188,67 @@ Cada fase es independientemente útil; se puede parar en cualquiera.
 - Audio: Tone.js, synth simple, nota escrita literal.
 - Velocidad: multiplicador 0.5–1.0× sobre el BPM real, tope 1.0.
 - Solo saxo alto.
+
+---
+
+## 10. Editor multilínea (reflow automático)
+
+> Añadido 2026-09-06. Sustituye el scroll horizontal infinito de la tira de
+> notas y el pentagrama por líneas envueltas con scroll vertical, para
+> canciones largas.
+
+**Motivación:** con canciones de muchos eventos, tanto la tira de texto como
+el pentagrama se convertían en una única fila que crecía sin límite hacia la
+derecha, obligando a hacer scroll horizontal constante para leer o editar.
+
+**Modelo de reflow.** No se persiste ningún salto de línea — ni en el texto
+serializado ni en `song_events`. Las líneas son puramente una vista calculada:
+se trocea el array de `events` (ya ordenado por `position`) en bloques de
+**28 eventos** (notas + silencios cuentan igual), recalculado en cada render.
+Insertar o borrar un evento en cualquier punto reordena automáticamente todo
+lo que va detrás en las líneas siguientes — no hace falta lógica extra para
+que "lo que escribes en la línea 2 se dibuje en la línea 2".
+
+**Tira de notas.** Deja de ser un único `<textarea>`. Cada línea (bloque de
+≤28 eventos) es su propia caja de texto, con el valor `MUS.serialize(chunk,
+beats_per_bar)`. Al editar la caja de la línea *i*, se reconstruye el texto
+completo (uniendo el valor de todas las líneas) y se pasa por el mismo
+`MUS.reconcile` que ya existe — el parser no cambia. Si al escribir en una
+línea se supera el bloque de 28, los eventos sobrantes migran visualmente a
+la línea siguiente en cuanto se reconcilia (ese es el "salto automático").
+El contenedor de todas las líneas tiene scroll vertical.
+
+*Riesgo conocido:* como cada caja se re-renderiza tras cada tecla (igual que
+hoy en el textarea único), escribir muy rápido justo en el borde de 28 puede
+hacer que el cursor salte al final de la caja cuando un evento se desborda a
+la línea siguiente. Caso raro, se ajusta si molesta en el uso real.
+
+**Pentagrama.** Mismo troceo de 28 aplicado a `StaffPreview`: una fila SVG
+por bloque, apiladas verticalmente dentro de un contenedor con scroll
+vertical (reemplaza el scroll horizontal actual). Cada fila recibe su slice
+de eventos más el offset para traducir índices locales↔globales (selección,
+nota activa).
+
+**Panel de pills.** Se filtra a una sola línea: la que contiene la nota
+seleccionada (`sel`). Si no hay selección pero la canción está sonando,
+muestra la línea de la nota que se está reproduciendo (`activeIdx`) en vez de
+quedarse vacío o fijo en la línea 1.
+
+**Reproducción cruzando líneas.** La lógica de audio/rAF no cambia — el
+playhead sigue siendo un único beat continuo. Lo nuevo: cada frame se calcula
+`lineOf(activeIdx)`; si cambió respecto al frame anterior, se hace scroll
+suave del contenedor de texto y del de pentagrama para dejar esa línea
+visible — mismo patrón que ya usa el auto-scroll horizontal existente, solo
+que vertical y a nivel de línea en vez de píxel a píxel.
+
+---
+
+## 11. Decisiones (ADR)
+
+| # | Decisión | Razón | Estado | Fecha |
+|---|---|---|---|---|
+| D1 | Tope de línea = 28 eventos (notas + silencios cuentan igual), fijo | Simplicidad y previsibilidad; pedido explícito por el usuario | vigente | 2026-09-06 |
+| D2 | El reflow en líneas es 100% calculado; no se persisten saltos de línea en texto ni en BD | Evita desincronizar lo guardado con la vista; reordenar es gratis porque ya se deriva de `position` en `events` | vigente | 2026-09-06 |
+| D3 | La tira de notas pasa de un `<textarea>` único a una caja de texto editable por línea | Permite auto-scroll vertical fiable y que el desbordamiento salte de línea automáticamente | vigente | 2026-09-06 |
+| D4 | El panel de pills muestra solo la línea de `sel`; si no hay selección y está sonando, usa la línea de `activeIdx` | Mantener foco de edición sin saturar la UI con todas las líneas a la vez | vigente | 2026-09-06 |
+| D5 | Cruce de línea en reproducción: auto-scroll vertical de texto y pentagrama siguiendo el playhead | Consistencia con el auto-scroll horizontal ya validado; evita inventar un mecanismo nuevo | vigente | 2026-09-06 |
