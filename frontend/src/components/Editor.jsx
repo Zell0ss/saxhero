@@ -165,15 +165,23 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const onText = (v, caretPos) => {
     pushUndo();
     const ev = MUS.reconcile(v, eventsRef.current);
-    const justTypedSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
-    if (justTypedSeparator) {
-      // serialize() never emits trailing whitespace, so reserializing right
-      // after the user types a bare separator would collapse it — the next
-      // keystroke's character would then land directly adjacent to the
-      // previous token (fusing them into one unparseable token, which
-      // parseStrip drops, taking the previous valid note down with it; see
-      // D7). Pass the raw value through unprocessed and canonicalize on the
-      // next keystroke that actually extends a token.
+    const droppedContent = ev.length < eventsRef.current.length;
+    const pendingSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
+    if (droppedContent || pendingSeparator) {
+      // Two cases where reserializing right now would do more harm than good:
+      //   - pendingSeparator: serialize() never emits trailing whitespace, so
+      //     collapsing a bare separator the user just typed would fuse the
+      //     next keystroke's character onto the previous token (see D7).
+      //   - droppedContent: the raw text currently contains something
+      //     ambiguous/invalid (e.g. two notes typed with no separator between
+      //     them, fusing into an unparseable token) that parseStrip silently
+      //     dropped, taking a previously-valid note down with it. Canonicalizing
+      //     now would erase the evidence from the screen too; showing the raw
+      //     text instead lets the user see the problem and fix it, matching
+      //     the non-destructive behavior this editor had before Task 3 (see D7).
+      // Pass the raw value through unprocessed either way and canonicalize on
+      // a later keystroke once the ambiguity resolves and content is only
+      // ever added, never silently lost.
       setText(v);
       setEvents(ev);
       onPatch({ strip: v, events: ev });
