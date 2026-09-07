@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, Fra
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
 import * as Audio from '../audio.js';
-import { LINE_SIZE, lineOf, caretTokenCount, offsetForTokenCount } from '../lineWrap.js';
+import { LINE_SIZE, TEXT_LINE_HEIGHT_PX, lineOf, caretTokenCount, offsetForTokenCount } from '../lineWrap.js';
 
 function findActiveIdx(beat, events, starts) {
   for (let i = 0; i < events.length; i++) {
@@ -61,6 +61,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const bpmRef = useRef(song.bpm);
   const lastT = useRef(0);
   const prevActiveIdxRef = useRef(-1);
+  const prevLineRef = useRef(-1);
   const countdownCancelRef = useRef(false);
   const metroRef = useRef(false);
   const prevBeatFloorRef = useRef(-1);
@@ -296,10 +297,21 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           }
         }
         setPlayBeat(beatRef.current);
+
+        const newLine = newIdx >= 0 ? lineOf(newIdx) : prevLineRef.current;
+        if (newLine !== prevLineRef.current && newLine >= 0) {
+          prevLineRef.current = newLine;
+          const ta = textareaRef.current;
+          if (ta) ta.scrollTop = TEXT_LINE_HEIGHT_PX * newLine;
+          const rowEl = staffRowRefs.current[newLine];
+          if (rowEl) rowEl.scrollIntoView({ block: "nearest" });
+        }
+        const activeLine = newLine >= 0 ? newLine : 0;
         const sc = scrollRef.current;
         if (sc) {
-          const x = beatToX(beatRef.current);
-          const target = x - sc.clientWidth * 0.45;
+          const lineStartBeat = st[activeLine * LINE_SIZE] || 0;
+          const localX = beatToX(beatRef.current - lineStartBeat);
+          const target = localX - sc.clientWidth * 0.45;
           if (Math.abs(sc.scrollLeft - target) > 2) sc.scrollLeft = Math.max(0, target);
         }
       }
