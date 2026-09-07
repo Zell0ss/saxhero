@@ -209,8 +209,16 @@ print(json.dumps(evs))
 ")
   SID=$(curl -s -X POST http://127.0.0.1:8000/api/songs/ \
     -H "Content-Type: application/json" \
-    -d "{\"title\": \"TEST multilinea (borrar)\", \"bpm\": 180, \"beats_per_bar\": 4, \"events\": $EVENTS}" \
+    -d "{\"title\": \"TEST multilinea (borrar)\", \"bpm\": 180, \"beats_per_bar\": 4}" \
     | jq -r '.id')
+  # POST does not persist `events` (pre-existing backend behavior, out of this
+  # plan's scope — confirmed in backend/songs.py's create_song(), which never
+  # reads data.events). Populate events via PUT, the same way the editor's
+  # own "Guardar" button does.
+  curl -s -X PUT http://127.0.0.1:8000/api/songs/$SID \
+    -H "Content-Type: application/json" \
+    -d "{\"title\": \"TEST multilinea (borrar)\", \"bpm\": 180, \"beats_per_bar\": 4, \"events\": $EVENTS}" \
+    -o /dev/null
 fi
 echo "Test song id: $SID"
 ```
