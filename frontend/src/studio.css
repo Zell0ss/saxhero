@@ -325,14 +325,18 @@ input, textarea { font-family: inherit; }
 .input-block .hint { font-size: 11.5px; color: var(--ink-faint); }
 .input-block .hint code { color: rgba(233,196,106,0.78); background: rgba(233,196,106,0.08); padding: 1px 5px; border-radius: 4px; font-size: 11px; }
 .strip-input {
-  width: 100%; min-height: 58px; resize: none; border-radius: 12px;
+  /* line-height must match TEXT_LINE_HEIGHT_PX in lineWrap.js — used for scrollTop math */
+  width: 100%; height: 150px; resize: none; border-radius: 12px;
   background: rgba(0,0,0,0.32); border: 1px solid var(--line);
-  color: var(--ink); font-size: 18px; line-height: 1.7; letter-spacing: 0.06em;
+  color: var(--ink); font-size: 15px; line-height: 28px; letter-spacing: 0.02em;
   padding: 13px 16px; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
-  font-family: "Sora", monospace;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  white-space: pre; overflow: auto; scroll-behavior: smooth;
 }
 .strip-input:focus { border-color: rgba(233,196,106,0.45); box-shadow: 0 0 0 3px rgba(233,196,106,0.07); }
 .strip-input::placeholder { color: var(--ink-faint); letter-spacing: 0.04em; }
+.strip-input::-webkit-scrollbar { width: 8px; height: 8px; }
+.strip-input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
 
 /* staff preview */
 .staff-block { flex: 1; min-height: 0; margin-top: 18px; display: flex; flex-direction: column; }
