@@ -249,10 +249,13 @@ Re-serializa+recoloca el cursor solo en una tecla que añade contenido sin
 perder ninguno.
 
 **Pentagrama.** Mismo troceo de 28 aplicado a `StaffPreview`: una fila SVG
-por bloque, apiladas verticalmente dentro de un contenedor con scroll
-vertical (reemplaza el scroll horizontal actual). Cada fila recibe su slice
-de eventos más el offset para traducir índices locales↔globales (selección,
-nota activa).
+por bloque, apiladas verticalmente dentro de un único contenedor con scroll
+en los dos ejes (reemplaza el scroll horizontal-solo actual). Cada fila
+recibe su slice de eventos más el offset para traducir índices
+locales↔globales (selección, nota activa) — y, desde el fix de barras de
+la revisión final, también su beat de inicio dentro de la canción, para
+que las líneas de compás coincidan con las de la tira de texto y las
+pills en vez de reiniciar su fase en cada línea.
 
 **Panel de pills.** Se filtra a una sola línea: la que contiene la nota
 seleccionada (`sel`). Si no hay selección pero la canción está sonando,
@@ -262,11 +265,14 @@ quedarse vacío o fijo en la línea 1.
 **Reproducción cruzando líneas.** La lógica de audio/rAF no cambia — el
 playhead sigue siendo un único beat continuo. Lo nuevo: cada frame se calcula
 `lineOf(activeIdx) = Math.floor(activeIdx / 28)` (misma fórmula en texto y
-pentagrama); si cambió respecto al frame anterior, se hace scroll suave del
+pentagrama); si cambió respecto al frame anterior, se actualiza el scroll del
 contenedor de texto (`textarea.scrollTop = lineHeight * línea`) y del de
 pentagrama (la fila correspondiente al viewport) para dejar esa línea
-visible — mismo patrón que ya usa el auto-scroll horizontal existente, solo
-que vertical y a nivel de línea en vez de píxel a píxel.
+visible. El de texto lo hace con scroll suave (transición CSS, Tarea 4, sin
+escritura competidora en ese elemento); el de pentagrama salta de forma
+instantánea (D10/D11) porque comparte su contenedor de scroll con la
+escritura de `scrollLeft` en cada frame del seguimiento horizontal, que
+cancelaría cualquier animación suave en marcha antes de que avanzara.
 
 ---
 
