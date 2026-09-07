@@ -209,19 +209,28 @@ Insertar o borrar un evento en cualquier punto reordena automáticamente todo
 lo que va detrás en las líneas siguientes — no hace falta lógica extra para
 que "lo que escribes en la línea 2 se dibuje en la línea 2".
 
-**Tira de notas.** Deja de ser un único `<textarea>`. Cada línea (bloque de
-≤28 eventos) es su propia caja de texto, con el valor `MUS.serialize(chunk,
-beats_per_bar)`. Al editar la caja de la línea *i*, se reconstruye el texto
-completo (uniendo el valor de todas las líneas) y se pasa por el mismo
-`MUS.reconcile` que ya existe — el parser no cambia. Si al escribir en una
-línea se supera el bloque de 28, los eventos sobrantes migran visualmente a
-la línea siguiente en cuanto se reconcilia (ese es el "salto automático").
-El contenedor de todas las líneas tiene scroll vertical.
+**Tira de notas — revisado 2026-09-06 (ver D6).** Se mantiene el `<textarea>`
+único. El serializador (`MUS.serialize`) inserta `\n` cada 28 eventos, además
+de los `|` de compás que ya insertaba. El parser no cambia: `parseStrip` ya
+trocea con `/\s+/`, que en JS incluye `\n`, así que un salto de línea ya se
+trata como separador equivalente a un espacio — igual que `|` — sin tocar una
+línea de `music.js`. Fuente monoespaciada + `white-space: pre` en el
+`.strip-input` para que la línea de texto *i* coincida visualmente con la
+fila *i* del pentagrama (sin que el navegador la envuelva por ancho). Si al
+escribir se supera el bloque de 28, el evento sobrante aparece en la línea
+siguiente en cuanto se re-serializa — el cursor simplemente atraviesa el
+`\n` como cualquier otro carácter, sin saltar entre elementos del DOM.
 
-*Riesgo conocido:* como cada caja se re-renderiza tras cada tecla (igual que
-hoy en el textarea único), escribir muy rápido justo en el borde de 28 puede
-hacer que el cursor salte al final de la caja cuando un evento se desborda a
-la línea siguiente. Caso raro, se ajusta si molesta en el uso real.
+*Riesgo conocido (real, no el de la versión anterior de este documento):*
+para que el `\n` aparezca *mientras se escribe* (no solo al salir del campo),
+`onText` pasa de guardar el texto tal cual se teclea a re-serializar+envolver
+en cada pulsación. Eso obliga a guardar y restaurar la posición del cursor a
+mano en cada tecla — mapeando por índice de evento (no por offset de
+carácter crudo, porque la re-serialización desplaza espacios/`\n`). Se
+verifica en el navegador al implementarlo. Si el usuario borra o inserta un
+`\n` a mano no pasa nada semánticamente (es solo separador), pero la
+re-serialización lo recoloca en cuanto reconcilia — puede sorprender la
+primera vez.
 
 **Pentagrama.** Mismo troceo de 28 aplicado a `StaffPreview`: una fila SVG
 por bloque, apiladas verticalmente dentro de un contenedor con scroll
@@ -236,8 +245,10 @@ quedarse vacío o fijo en la línea 1.
 
 **Reproducción cruzando líneas.** La lógica de audio/rAF no cambia — el
 playhead sigue siendo un único beat continuo. Lo nuevo: cada frame se calcula
-`lineOf(activeIdx)`; si cambió respecto al frame anterior, se hace scroll
-suave del contenedor de texto y del de pentagrama para dejar esa línea
+`lineOf(activeIdx) = Math.floor(activeIdx / 28)` (misma fórmula en texto y
+pentagrama); si cambió respecto al frame anterior, se hace scroll suave del
+contenedor de texto (`textarea.scrollTop = lineHeight * línea`) y del de
+pentagrama (la fila correspondiente al viewport) para dejar esa línea
 visible — mismo patrón que ya usa el auto-scroll horizontal existente, solo
 que vertical y a nivel de línea en vez de píxel a píxel.
 
@@ -249,6 +260,7 @@ que vertical y a nivel de línea en vez de píxel a píxel.
 |---|---|---|---|---|
 | D1 | Tope de línea = 28 eventos (notas + silencios cuentan igual), fijo | Simplicidad y previsibilidad; pedido explícito por el usuario | vigente | 2026-09-06 |
 | D2 | El reflow en líneas es 100% calculado; no se persisten saltos de línea en texto ni en BD | Evita desincronizar lo guardado con la vista; reordenar es gratis porque ya se deriva de `position` en `events` | vigente | 2026-09-06 |
-| D3 | La tira de notas pasa de un `<textarea>` único a una caja de texto editable por línea | Permite auto-scroll vertical fiable y que el desbordamiento salte de línea automáticamente | vigente | 2026-09-06 |
+| D3 | La tira de notas pasa de un `<textarea>` único a una caja de texto editable por línea | Permite auto-scroll vertical fiable y que el desbordamiento salte de línea automáticamente | superada por D6 | 2026-09-06 |
 | D4 | El panel de pills muestra solo la línea de `sel`; si no hay selección y está sonando, usa la línea de `activeIdx` | Mantener foco de edición sin saturar la UI con todas las líneas a la vez | vigente | 2026-09-06 |
 | D5 | Cruce de línea en reproducción: auto-scroll vertical de texto y pentagrama siguiendo el playhead | Consistencia con el auto-scroll horizontal ya validado; evita inventar un mecanismo nuevo | vigente | 2026-09-06 |
+| D6 | La tira de notas se mantiene como un único `<textarea>`; el serializador inserta `\n` cada 28 eventos y se apoya en que `parseStrip` ya trata `\n` como separador (vía `/\s+/`), sin tocar el parser | Mucho más simple que D3 (una sola caja controlada, sin migración de contenido entre elementos del DOM); el `\n` incrustado no rompe D2 porque `strip`/texto nunca se persiste en el backend | vigente | 2026-09-06 |
