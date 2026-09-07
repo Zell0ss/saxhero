@@ -305,15 +305,23 @@ with:
   const onText = (v, caretPos) => {
     pushUndo();
     const ev = MUS.reconcile(v, eventsRef.current);
-    const justTypedSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
-    if (justTypedSeparator) {
-      // serialize() never emits trailing whitespace, so reserializing right
-      // after the user types a bare separator would collapse it — the next
-      // keystroke's character would then land directly adjacent to the
-      // previous token (fusing them into one unparseable token, which
-      // parseStrip drops, taking the previous valid note down with it; see
-      // D7). Pass the raw value through unprocessed and canonicalize on the
-      // next keystroke that actually extends a token.
+    const droppedContent = ev.length < eventsRef.current.length;
+    const pendingSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
+    if (droppedContent || pendingSeparator) {
+      // Two cases where reserializing right now would do more harm than good:
+      //   - pendingSeparator: serialize() never emits trailing whitespace, so
+      //     collapsing a bare separator the user just typed would fuse the
+      //     next keystroke's character onto the previous token (see D7).
+      //   - droppedContent: the raw text currently contains something
+      //     ambiguous/invalid (e.g. two notes typed with no separator between
+      //     them, fusing into an unparseable token) that parseStrip silently
+      //     dropped, taking a previously-valid note down with it. Canonicalizing
+      //     now would erase the evidence from the screen too; showing the raw
+      //     text instead lets the user see the problem and fix it, matching
+      //     the non-destructive behavior this editor had before Task 3 (see D7).
+      // Pass the raw value through unprocessed either way and canonicalize on
+      // a later keystroke once the ambiguity resolves and content is only
+      // ever added, never silently lost.
       setText(v);
       setEvents(ev);
       onPatch({ strip: v, events: ev });
@@ -329,7 +337,9 @@ with:
   };
 ```
 
-**D7 (added during Task 3 execution, supersedes this step's original text):** the first version of this step reserialized unconditionally on every keystroke. That destroyed data: typing a second note via ordinary sequential keystrokes (anywhere — mid-string or at the end, even from an empty field) silently deleted the immediately preceding valid note. Root cause: `MUS.serialize` never emits trailing/pending whitespace (`parts.join(' ')`, no trailing separator), so the live reserialize right after a bare space keystroke collapsed that space away before the next letter arrived, fusing the next character onto the previous token into a two-letter string `parseToken`'s regex (`/^([A-Ga-g])([#b]?)([,']*)$/`) rejects — `parseStrip` then silently drops the whole fused token, taking the old valid note with it. Verified via `node` before ruling (both the reported end-of-text repro and a mid-string insertion case) that skipping the reserialize specifically when the just-typed character is whitespace — deferring canonicalization to the next keystroke that actually extends a token — fixes it in both cases without reintroducing any cursor-jump risk (the skip branch passes the browser's own post-keystroke value straight through, so the caret is exactly where the browser already put it natively; no caret math needed for that branch).
+**D7 (added during Task 3 execution, supersedes this step's original text):** the first version of this step reserialized unconditionally on every keystroke. That destroyed data: typing a second note via ordinary sequential keystrokes (anywhere — mid-string or at the end, even from an empty field) silently deleted the immediately preceding valid note. Root cause: `MUS.serialize` never emits trailing/pending whitespace (`parts.join(' ')`, no trailing separator), so the live reserialize right after a bare space keystroke collapsed that space away before the next letter arrived, fusing the next character onto the previous token into a two-letter string `parseToken`'s regex (`/^([A-Ga-g])([#b]?)([,']*)$/`) rejects — `parseStrip` then silently drops the whole fused token, taking the old valid note with it.
+
+The first fix round (skip reserialize specifically when the just-typed character is whitespace) handles that case correctly — verified via `node` for both the reported end-of-text repro and a mid-string insertion case, both using the only grammatically valid way to add a note after existing content: type the separator *first*, then the letter. It left one narrower case unhandled: a keystroke that fuses onto the *previous* token with no separator at all (e.g. typing a letter directly adjacent to existing content, skipping the separator by mistake) still reserialized immediately, since that keystroke's last character isn't whitespace — silently hiding the ambiguous text (and the note it swallowed) from the screen the instant it happened, worse than this editor's pre-Task-3 behavior of leaving the raw, visibly-wrong text on screen for the user to notice and fix. Added a second guard, `droppedContent`: if reconciling the raw text produced *fewer* events than before this keystroke, something got silently dropped — skip canonicalizing so the raw (visibly wrong) text stays on screen instead of vanishing, exactly matching the pre-Task-3 fallback behavior for this unresolvable ambiguity (there is no way to distinguish "meant to extend the previous token," e.g. `D`→`Db`, which stays a single valid token and is unaffected by this guard, from "meant to start a new one and forgot the separator," e.g. `D`→`DC`, which isn't — both guards were re-verified together via `node` before this round: the correct leading-separator sequence still reaches 33 events exactly as before, and the no-separator case now leaves the ambiguous text visible instead of erasing it, self-correcting via `droppedContent` becoming false again as soon as a later keystroke both adds a separator and doesn't reduce the count).
 
 - [ ] **Step 4: Restore the caret after each reflow**
 
@@ -363,11 +373,12 @@ to:
 
 - [ ] **Step 6: Verify in the browser**
 
-Re-add the temporary `vite.config.js` proxy, start `npm run dev`, open the `TEST multilinea (borrar)` song from Task 2 (find it via the songs list — same idempotent lookup curl if you need its id again — it has 30 events). Click into the "Tira de notas" textarea, place the cursor at the very end of the text, and type 3 more notes **as individual sequential keystrokes** (`C`, `Space`, `E`, `Space`, `G` — six separate keystrokes; whatever tool you use to type must not re-click/re-focus the element between keystrokes, since that can itself move the caret and mask what you're testing). After each keystroke, read the textarea's actual `value` (not just a screenshot) to confirm. Confirm:
-- **The event count only grows, never shrinks.** After all 6 keystrokes the "Línea de tiempo" count must read 33 events (30 + 3), not fewer. This is the case D7 exists to fix — if you see the count drop below 30 at any point (a previously-typed note disappearing), the `justTypedSeparator` branch isn't working; do not treat this as acceptable and do not "fix" it by reverting to unconditional reserialization.
+Re-add the temporary `vite.config.js` proxy, start `npm run dev`, open the `TEST multilinea (borrar)` song from Task 2 (find it via the songs list — same idempotent lookup curl if you need its id again — it has 30 events, and its text ends in a complete token with no trailing separator, e.g. `...F G A B |\nC D`). Click into the "Tira de notas" textarea, place the cursor at the very end of the text, and type 3 more notes **as individual sequential keystrokes, separator first**: `Space`, `C`, `Space`, `E`, `Space`, `G` — six separate keystrokes (the leading `Space` is required: the existing text has no trailing separator, so it must be typed before the first new letter, exactly as a real user would naturally type it — typing the letter first, skipping the separator, is a different and separately-covered case below). Whatever tool you use to type must not re-click/re-focus the element between keystrokes, since that can itself move the caret and mask what you're testing. After each keystroke, read the textarea's actual `value` (not just a screenshot) to confirm. Confirm:
+- **The event count only grows, never shrinks.** After all 6 keystrokes the "Línea de tiempo" count must read 33 events (30 + 3), not fewer at any point along the way.
 - The 29th, 30th, 31st (through 33rd) events appear on what is now line 2 of the text (a `\n` shows up right after the 28th token as soon as you cross it).
 - The cursor stays right after the last character you typed at every keystroke — it must NOT jump to the start or end of the textarea while you're still typing.
-- Typing an invalid character (e.g. `x`, which `parseToken` cannot parse) is dropped from the text on the very next keystroke — this is expected (D6's accepted tradeoff), not a bug. (Note: per D7, this specific drop only fires on a keystroke that follows non-whitespace content, e.g. typing `x` right after a letter with no separator — an `x` typed right after a bare space is itself just an ordinary invalid-token keystroke and gets dropped the same way once a following separator or another keystroke triggers canonicalization.)
+- Typing an invalid character (e.g. `x`, which `parseToken` cannot parse) is dropped from the text on the very next keystroke — this is expected (D6's accepted tradeoff), not a bug.
+- **Separately, the no-leading-separator case (D7's `droppedContent` guard):** reload the fixture fresh, place the cursor at the very end again, and this time type `C` directly with **no** leading space, then `Space`, then `E`. Confirm the count temporarily reads 29 after the first `C` (the pre-existing last note fuses with it into one invalid, dropped token — this is expected, not fixable, per D7's writeup: it's genuinely ambiguous input) but the raw text stays visibly on screen showing the fusion (e.g. `...A B |\nC D` immediately followed by the typed `C` with no gap) rather than silently vanishing — confirm you can still SEE what went wrong at this point, unlike before this fix round. This scenario does not need to reach any particular final count; it only needs to not hide the mistake from the screen.
 
 Revert the `vite.config.js` proxy change before committing.
 

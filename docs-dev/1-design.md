@@ -238,10 +238,15 @@ nunca emite un espacio final, así que re-serializar justo tras teclear un
 espacio suelto lo colapsaba; la siguiente tecla (la letra de la nueva nota)
 aterrizaba pegada al token anterior, formando un token inválido de 2+ letras
 que `parseToken` rechaza, y `parseStrip` lo descartaba entero — borrando
-también la nota anterior válida. `onText` ahora deja pasar el texto crudo
-sin canonicalizar cuando el carácter recién tecleado es un separador, y solo
-re-serializa+recoloca el cursor en la tecla siguiente que de verdad extienda
-un token.
+también la nota anterior válida. `onText` deja pasar el texto crudo sin
+canonicalizar en dos casos: cuando el carácter recién tecleado es un
+separador (para no comerse ese hueco antes de que llegue la letra), y cuando
+reconciliar produjo menos eventos que antes de esa tecla (para no ocultar del
+texto visible una fusión ambigua e irresoluble — p. ej. teclear una letra
+pegada al token anterior sin separador — dejando el texto crudo en pantalla,
+como ya hacía el editor antes de la Tarea 3, en vez de borrarlo al instante).
+Re-serializa+recoloca el cursor solo en una tecla que añade contenido sin
+perder ninguno.
 
 **Pentagrama.** Mismo troceo de 28 aplicado a `StaffPreview`: una fila SVG
 por bloque, apiladas verticalmente dentro de un contenedor con scroll
@@ -275,4 +280,4 @@ que vertical y a nivel de línea en vez de píxel a píxel.
 | D4 | El panel de pills muestra solo la línea de `sel`; si no hay selección y está sonando, usa la línea de `activeIdx` | Mantener foco de edición sin saturar la UI con todas las líneas a la vez | vigente | 2026-09-06 |
 | D5 | Cruce de línea en reproducción: auto-scroll vertical de texto y pentagrama siguiendo el playhead | Consistencia con el auto-scroll horizontal ya validado; evita inventar un mecanismo nuevo | vigente | 2026-09-06 |
 | D6 | La tira de notas se mantiene como un único `<textarea>`; el serializador inserta `\n` cada 28 eventos y se apoya en que `parseStrip` ya trata `\n` como separador (vía `/\s+/`), sin tocar el parser | Mucho más simple que D3 (una sola caja controlada, sin migración de contenido entre elementos del DOM); el `\n` incrustado no rompe D2 porque `strip`/texto nunca se persiste en el backend | vigente | 2026-09-06 |
-| D7 | `onText` NO re-serializa en cada tecla incondicionalmente: cuando el carácter recién tecleado es un separador (espacio/`\n`), se deja pasar el texto crudo tal cual (`setText(v)`, sin canonicalizar) y solo se re-serializa+recoloca el cursor en la siguiente tecla que de verdad extienda un token | `MUS.serialize` nunca emite espacio final (`parts.join(' ')`, sin separador colgante); re-serializar justo tras un espacio suelto lo colapsaba, fusionando el siguiente carácter tecleado con el token anterior en un token de 2+ letras que `parseToken` rechaza — `parseStrip` lo descartaba entero, borrando también la nota anterior válida. Encontrado por el implementador de la Tarea 3 al escribir una segunda nota por teclas sueltas (incluso desde campo vacío); reproducido y confirmado con `node` antes de fallar sobre ello | vigente | 2026-09-07 |
+| D7 | `onText` NO re-serializa en cada tecla incondicionalmente: se deja pasar el texto crudo tal cual (`setText(v)`, sin canonicalizar) cuando el carácter recién tecleado es un separador (espacio/`\n`), **o** cuando reconciliar el texto crudo produjo MENOS eventos que antes de esta tecla (`droppedContent`); solo se re-serializa+recoloca el cursor en una tecla que añade contenido sin perder ninguno | `MUS.serialize` nunca emite espacio final (`parts.join(' ')`); re-serializar justo tras un espacio suelto lo colapsaba, fusionando la letra siguiente con el token anterior. La primera ronda del guard (solo por separador) arregla la secuencia correcta de escritura (separador→letra), verificado con `node`, pero dejaba un caso: tecleares una letra pegada al token anterior sin separador (ambigüedad irresoluble entre "extender el token" y "empezar uno nuevo, olvidando el separador") seguía re-serializando de inmediato, ocultando el error del texto visible al instante — peor que el comportamiento previo a la Tarea 3, que dejaba el texto crudo (visiblemente roto) en pantalla para que el usuario lo viera y lo corrigiera. El guard `droppedContent` restaura ese comportamiento no-destructivo. Encontrado por el implementador de la Tarea 3; ambos guards verificados juntos con `node` antes de esta ronda | vigente | 2026-09-07 |
