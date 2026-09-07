@@ -839,7 +839,9 @@ EOF
 - Consumes: `TEXT_LINE_HEIGHT_PX`, `LINE_SIZE`, `lineOf` (Task 1); `textareaRef` (Task 3); `staffRowRefs`, `scrollRef` (Task 5).
 - Produces: nothing consumed elsewhere — this is the last piece of D5.
 
-**D10 (added retroactively during Task 5's review, addressed here):** Task 5's `.staff-scroll` CSS added `scroll-behavior: smooth` for the vertical row-into-view transition this task implements (Step 4 below, `rowEl.scrollIntoView({behavior: "smooth", ...})`). But this task's horizontal follow (Step 4's `sc.scrollLeft = ...`, running every animation frame while playing) is a plain property assignment on the *same element* — the CSS `scroll-behavior: smooth` applies to that too, so every frame would start a new smooth-scroll animation that the next frame immediately interrupts: perpetual-chase jank, never converging. `scrollIntoView`'s own explicit `behavior: "smooth"` option overrides the element's CSS property for that one call regardless, so removing the CSS property doesn't lose the intended vertical smoothness — it only removes the (broken) smoothing from the per-frame horizontal assignment, which was never meant to animate anyway (it didn't, before line-wrapping — see the original pre-Task-5 code this replaced). Found by Task 5's reviewer while confirming this task's assigned work would actually be coverable; fix is Step 3 below.
+**D10 (added retroactively during Task 5's review, addressed here):** Task 5's `.staff-scroll` CSS added `scroll-behavior: smooth` for the vertical row-into-view transition this task implements (Step 4 below). But this task's horizontal follow (Step 4's `sc.scrollLeft = ...`, running every animation frame while playing) is a plain property assignment on the *same element* — the CSS `scroll-behavior: smooth` applies to that too, so every frame would start a new smooth-scroll animation that the next frame immediately interrupts: perpetual-chase jank, never converging. Fix is Step 3 below: drop the CSS property.
+
+**D11 (added retroactively during Task 7's execution, supersedes D10's closing claim and this step's original `rowEl.scrollIntoView` call):** D10 reasoned that `scrollIntoView`'s own explicit `behavior: "smooth"` option would keep the vertical jump smooth regardless of the CSS property's removal, since a JS-level option overrides CSS. That's true for *smoothness*, but false for *completion*: on a single scrolling box, any scroll write — smooth or instant, either axis — cancels a same-box scroll animation already in progress (standard CSSOM View behavior, not a browser or headless-testing quirk). Since the horizontal follow writes `sc.scrollLeft` on literally every animation frame throughout playback, it cancels the vertical `scrollIntoView` animation before it can move `scrollTop` by even one pixel, every single time a line crossing happens — confirmed by Task 7's implementer with 1107 real-playback rAF samples (`scrollTop` never left 0 across a crossing) and an isolated 90-frame synthetic repro (a bare per-frame `scrollLeft` write alone, with nothing else running, fully blocks an in-progress `scrollIntoView({behavior:"smooth"})` on the same element). Fix: drop `behavior: "smooth"` from the row's `scrollIntoView` call too, matching the horizontal follow's already-instant behavior — an instant write on one axis doesn't cancel an instant write on the other, so both now complete every frame they're issued. This does trade away the row jump's animated smoothness (the textarea's line-jump, on a *different* element with no competing per-frame write, keeps its smooth CSS transition unaffected — see Task 4).
 
 - [ ] **Step 1: Import `TEXT_LINE_HEIGHT_PX`**
 
@@ -912,7 +914,7 @@ with:
           const ta = textareaRef.current;
           if (ta) ta.scrollTop = TEXT_LINE_HEIGHT_PX * newLine;
           const rowEl = staffRowRefs.current[newLine];
-          if (rowEl) rowEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          if (rowEl) rowEl.scrollIntoView({ block: "nearest" });
         }
         const activeLine = newLine >= 0 ? newLine : 0;
         const sc = scrollRef.current;
@@ -929,9 +931,9 @@ Note: `st` (not the outer `starts` memo) is used deliberately — the rest of th
 - [ ] **Step 5: Verify in the browser**
 
 Re-add the temporary proxy, open the `TEST multilinea (borrar)` song (30 notes, 180 BPM → line 1 takes 28 beats ≈ 9.3s at BPM 180 with speed 1.0 — set the speed slider to 1.0× and toggle "1-2-3-4" (skip countdown) on for a faster test loop). Click the play button, let it run past the 28th note, and confirm:
-- The textarea auto-scrolls so line 2 becomes visible right when the 29th note starts sounding.
-- The staff view auto-scrolls (or is already positioned, if it fit) so row 2 is visible at the same moment.
-- The gold playhead marker and the horizontal scroll continue to track the currently-sounding note within its row exactly as they did within a single line before this change — smoothly for the row-into-view jump, but the per-frame horizontal follow within a row should be immediate/instant (no visible chase/lag), confirming D10's fix actually removed the jank rather than just changing its shape.
+- The textarea auto-scrolls so line 2 becomes visible right when the 29th note starts sounding (smoothly, via its own CSS — Task 4 — since nothing else writes to its scroll position every frame).
+- The staff view's row jump actually happens — confirm `scrollTop` genuinely moves (not just that the code runs), ideally by reading it directly rather than trusting a visual glance, since this is exactly what silently failed before D11. It will be an instant jump, not animated (D11) — that's expected, not a bug.
+- The per-frame horizontal follow within a row is immediate/instant (no visible chase/lag), confirming D10's fix still holds.
 
 Revert the `vite.config.js` proxy change before committing.
 
@@ -940,16 +942,20 @@ Revert the `vite.config.js` proxy change before committing.
 ```bash
 git add frontend/src/components/Editor.jsx frontend/src/studio.css
 git commit -m "$(cat <<'EOF'
-feat: auto-scroll text + staff panels on line crossing during playback (D5, D10)
+feat: auto-scroll text + staff panels on line crossing during playback (D5, D10, D11)
 
 Detects the line change inside the existing rAF clock (no new timer)
 and scrolls the textarea by line-height*line, plus scrollIntoView on
 the newly-active staff row. Horizontal within-row follow keeps using
 scrollRef, now computed against the active row's local beat offset.
 Drops .staff-scroll's scroll-behavior:smooth (D10) — it fought with
-this per-frame horizontal assignment on the same element; the row
-scrollIntoView call keeps its own smoothness via its explicit
-behavior:"smooth" option, unaffected by the CSS property's removal.
+this per-frame horizontal assignment on the same element. Also drops
+behavior:"smooth" from the row's scrollIntoView call (D11) — a scroll
+write on either axis of one scrolling box cancels an in-flight smooth
+scroll animation on that same box regardless of axis, so the per-frame
+horizontal write was silently cancelling the vertical jump before it
+could move at all; both axes are now instant so neither cancels the
+other.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01GzLJquQ5cwGmfQFYQ2DLFs
