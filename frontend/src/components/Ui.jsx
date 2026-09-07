@@ -88,7 +88,7 @@ function ledgers(step) {
 }
 
 // ---- staff preview ----
-export function StaffPreview({ events, beatsPerBar, selectedIdx = -1, activeIdx = -1, onSelect }) {
+export function StaffPreview({ events, beatsPerBar, selectedIdx = -1, activeIdx = -1, onSelect, startBeat = 0, isLastLine = true }) {
   const W = staffWidth(events);
   const lines = [0, 2, 4, 6, 8];
   let cum = 0;
@@ -101,7 +101,9 @@ export function StaffPreview({ events, beatsPerBar, selectedIdx = -1, activeIdx 
   const totalB = cum;
   const bars = [];
   if (beatsPerBar > 0) {
-    for (let b = beatsPerBar; b < totalB - 1e-6; b += beatsPerBar) bars.push(b);
+    let phase = startBeat % beatsPerBar;
+    if (phase < 1e-6) phase = 0;
+    for (let b = phase === 0 ? beatsPerBar : beatsPerBar - phase; b < totalB - 1e-6; b += beatsPerBar) bars.push(b);
   }
   return (
     <svg className="nota" width={W} height={STAFF.H} style={{ display: "block" }}>
@@ -112,7 +114,7 @@ export function StaffPreview({ events, beatsPerBar, selectedIdx = -1, activeIdx 
       {bars.map((b, i) => (
         <line key={"b" + i} x1={beatToX(b)} y1={yStep(8)} x2={beatToX(b)} y2={yStep(0)} stroke="rgba(255,255,255,0.16)" strokeWidth="1" />
       ))}
-      <line x1={beatToX(totalB) + 6} y1={yStep(8)} x2={beatToX(totalB) + 6} y2={yStep(0)} stroke="rgba(255,255,255,0.28)" strokeWidth="2.2" />
+      {isLastLine && <line x1={beatToX(totalB) + 6} y1={yStep(8)} x2={beatToX(totalB) + 6} y2={yStep(0)} stroke="rgba(255,255,255,0.28)" strokeWidth="2.2" />}
       {placed.map(({ ev, start, d }, i) => {
         const x = beatToX(start) + STAFF.OFF;
         const active = i === activeIdx;

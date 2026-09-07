@@ -95,6 +95,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     }
     prevActiveIdxRef.current = -1;
     prevBeatFloorRef.current = -1;
+    prevLineRef.current = -1;
     lastT.current = 0;
     playingRef.current = true;
     setPlaying(true);
@@ -304,7 +305,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           const ta = textareaRef.current;
           if (ta) ta.scrollTop = TEXT_LINE_HEIGHT_PX * newLine;
           const rowEl = staffRowRefs.current[newLine];
-          if (rowEl) rowEl.scrollIntoView({ block: "nearest" });
+          const scEl = scrollRef.current;
+          if (rowEl && scEl) scEl.scrollTop = rowEl.offsetTop - scEl.offsetTop;
         }
         const activeLine = newLine >= 0 ? newLine : 0;
         const sc = scrollRef.current;
@@ -436,7 +438,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
                       style={{ position: "relative", width: staffWidth(chunk), minHeight: 210 }}>
                       <StaffPreview events={chunk} beatsPerBar={song.beats_per_bar}
                         selectedIdx={sel - lineStart} activeIdx={activeIdx - lineStart}
-                        onSelect={(i) => selectAndSeek(lineStart + i)} />
+                        onSelect={(i) => selectAndSeek(lineStart + i)}
+                        startBeat={starts[lineStart] || 0} isLastLine={L === totalLines - 1} />
                       {chunk.length > 0 && L === playheadLine && (
                         <div className="staff-playhead" style={{ left: beatToX(playheadLocalBeat) }} />
                       )}
