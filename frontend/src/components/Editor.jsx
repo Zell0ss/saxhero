@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from 'rea
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
 import * as Audio from '../audio.js';
+import { LINE_SIZE } from '../lineWrap.js';
 
 function findActiveIdx(beat, events, starts) {
   for (let i = 0; i < events.length; i++) {
@@ -29,7 +30,7 @@ function StepperField({ label, value, unit, onDec, onInc }) {
 }
 
 export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, saving, onBack }) {
-  const [text, setText] = useState(() => MUS.serialize(song.events || [], song.beats_per_bar));
+  const [text, setText] = useState(() => MUS.serialize(song.events || [], song.beats_per_bar, LINE_SIZE));
   const [events, setEvents] = useState(() => (song.events || []).map((ev) => ({ ...ev })));
   const [sel, setSel] = useState(-1);
   const [playing, setPlaying] = useState(false);
@@ -171,7 +172,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const applyEvents = useCallback((next) => {
     pushUndo();
     setEvents(next);
-    const s = MUS.serialize(next, song.beats_per_bar);
+    const s = MUS.serialize(next, song.beats_per_bar, LINE_SIZE);
     setText(s);
     onPatch({ strip: s, events: next });
   }, [song.beats_per_bar, onPatch]);

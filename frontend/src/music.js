@@ -42,16 +42,17 @@ export function tokenForEvent(ev) {
   return letter + (ev.acc || "") + marks;
 }
 
-export function serialize(events, beatsPerBar) {
+export function serialize(events, beatsPerBar, wrapAt) {
   const parts = [];
   let acc = 0;
-  events.forEach((ev) => {
+  events.forEach((ev, i) => {
     parts.push(tokenForEvent(ev));
     acc += durBeats(ev);
     if (beatsPerBar && acc >= beatsPerBar - 1e-6) { acc = 0; parts.push("|"); }
+    if (wrapAt && (i + 1) % wrapAt === 0 && i !== events.length - 1) parts.push("\n");
   });
   if (parts[parts.length - 1] === "|") parts.pop();
-  return parts.join(" ");
+  return parts.join(" ").replace(/ ?\n ?/g, "\n");
 }
 
 export const LADDER = [
