@@ -115,6 +115,42 @@ EOF
 )"
 ```
 
+**D8 (added retroactively during Task 3's first review, supersedes `caretTokenCount`/`offsetForTokenCount`'s original bodies above):** both functions counted `|` as an ordinary token. `MUS.serialize` auto-inserts `|` at every bar boundary in its *canonical* output, but the raw text the user is actively typing usually doesn't have one there yet. So `caretTokenCount(v, caretPos)` (counting in the raw text) and `offsetForTokenCount(wrapped, n)` (locating in the canonical text) disagreed by one token every time a bar boundary fell before the caret — the caret landed right *before* the just-typed note instead of after it, which reorders notes on the very next keystroke. Found by Task 3's reviewer while hand-tracing the implementer's own passing evidence (`selectionStart: 79` sitting on the space before `G` in `...E | G`, not after it); confirmed and fixed with `node` before ruling. Fix: both functions skip `|` when counting/scanning, matching how `parseStrip` already treats it as a non-event:
+
+```js
+export function caretTokenCount(text, caretPos) {
+  return text.slice(0, caretPos).trim().split(/\s+/).filter(Boolean).filter((t) => t !== "|").length;
+}
+
+export function offsetForTokenCount(text, n) {
+  if (n <= 0) return 0;
+  const re = /\S+/g;
+  let m, count = 0, end = text.length;
+  while ((m = re.exec(text))) {
+    if (m[0] === "|") continue;
+    count++;
+    end = m.index + m[0].length;
+    if (count === n) return end;
+  }
+  return end;
+}
+```
+
+Re-verify with an expanded version of Task 1's original smoke test — all of Task 1's original assertions must still pass (none of them involved `|`), plus:
+
+```bash
+node --input-type=module -e "
+import { caretTokenCount, offsetForTokenCount } from './frontend/src/lineWrap.js';
+const wrapped = 'C D C E | G';
+const v = 'C D C E G';
+const n = caretTokenCount(v, v.length);
+console.assert(n === 5, 'caretTokenCount ignores | in raw text, got ' + n);
+const offset = offsetForTokenCount(wrapped, n);
+console.assert(offset === wrapped.length, 'offsetForTokenCount lands after G despite the auto-inserted | before it, got ' + offset);
+console.log('D8 smoke test OK');
+"
+```
+
 ---
 
 ### Task 2: `serialize()` wrap support + wire the two existing call sites
@@ -321,7 +357,12 @@ with:
       //     the non-destructive behavior this editor had before Task 3 (see D7).
       // Pass the raw value through unprocessed either way and canonicalize on
       // a later keystroke once the ambiguity resolves and content is only
-      // ever added, never silently lost.
+      // ever added, never silently lost. Clear any pending caret offset left
+      // over from a prior canonicalize call that turned out to be a no-op
+      // (wrapped === text, so React bails and the layout effect never fires;
+      // see D9) — otherwise that stale offset would get applied to this
+      // unrelated raw text once IT changes text and the effect finally runs.
+      pendingCaretRef.current = null;
       setText(v);
       setEvents(ev);
       onPatch({ strip: v, events: ev });
