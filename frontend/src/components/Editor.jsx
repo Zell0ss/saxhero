@@ -42,6 +42,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [skipCountdown, setSkipCountdown] = useState(false);
   const [metro, setMetro] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
+  const [visibleLine, setVisibleLine] = useState(0);
 
   const fileRef = useRef(null);
   const textareaRef = useRef(null);
@@ -148,6 +149,11 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     [playBeat, events, starts]
   );
   const activeIdx = playing ? playheadIdx : -1;
+
+  useEffect(() => {
+    if (playing) { setVisibleLine(lineOf(activeIdx)); return; }
+    if (sel >= 0) setVisibleLine(lineOf(sel));
+  }, [playing, activeIdx, sel]);
 
   const totalLines = Math.max(1, Math.ceil(events.length / LINE_SIZE));
   const lineChunks = useMemo(() => {
@@ -333,6 +339,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const refNote = refIdx >= 0 ? events[refIdx] : null;
   const refKeys = refNote && !refNote.isRest ? MUS.fingering(refNote) : [];
   const beatInBar = song.beats_per_bar > 0 ? Math.floor(playBeat % song.beats_per_bar) : 0;
+  const clampedLine = Math.min(visibleLine, totalLines - 1);
 
   return (
     <div className="editor">
@@ -432,15 +439,16 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
           <div className="timeline">
             <div className="tl-head">
               <span className="lbl">Línea de tiempo</span>
-              <span className="count">{events.length} evento{events.length === 1 ? "" : "s"} · {(+total.toFixed(2))} tiempos</span>
+              <span className="count">Línea {clampedLine + 1}/{totalLines} · {events.length} evento{events.length === 1 ? "" : "s"} · {(+total.toFixed(2))} tiempos</span>
             </div>
             <div className="pills">
-              {events.map((ev, i) => {
-                const cls = "pill" + (i === sel ? " sel" : "") + (i === activeIdx ? " active" : "") + (ev.isRest ? " rest" : "");
+              {events.slice(clampedLine * LINE_SIZE, clampedLine * LINE_SIZE + LINE_SIZE).map((ev, i) => {
+                const globalIdx = clampedLine * LINE_SIZE + i;
+                const cls = "pill" + (globalIdx === sel ? " sel" : "") + (globalIdx === activeIdx ? " active" : "") + (ev.isRest ? " rest" : "");
                 return (
-                  <Fragment key={i}>
-                    {i > 0 && barStarts.has(i) && <div className="tl-bar-sep" />}
-                    <button className={cls} onClick={() => selectAndSeek(i)}>
+                  <Fragment key={globalIdx}>
+                    {i > 0 && barStarts.has(globalIdx) && <div className="tl-bar-sep" />}
+                    <button className={cls} onClick={() => selectAndSeek(globalIdx)}>
                       {ev.dotted && <span className="badge">·</span>}
                       {ev.triplet && <span className="badge" style={{ right: ev.dotted ? 12 : -6 }}>3</span>}
                       {ev.isRest
