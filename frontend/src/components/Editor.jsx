@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, Fra
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
 import * as Audio from '../audio.js';
-import { LINE_SIZE, caretTokenCount, offsetForTokenCount } from '../lineWrap.js';
+import { LINE_SIZE, lineOf, caretTokenCount, offsetForTokenCount } from '../lineWrap.js';
 
 function findActiveIdx(beat, events, starts) {
   for (let i = 0; i < events.length; i++) {
@@ -47,6 +47,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const textareaRef = useRef(null);
   const pendingCaretRef = useRef(null);
   const scrollRef = useRef(null);
+  const staffRowRefs = useRef([]);
   const beatRef = useRef(0);
   const playingRef = useRef(false);
   const speedRef = useRef(speed);
@@ -142,10 +143,20 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     return set;
   }, [events, song.beats_per_bar]);
 
-  const activeIdx = useMemo(
-    () => playing ? findActiveIdx(playBeat, events, starts) : -1,
-    [playing, playBeat, events, starts]
+  const playheadIdx = useMemo(
+    () => findActiveIdx(playBeat, events, starts),
+    [playBeat, events, starts]
   );
+  const activeIdx = playing ? playheadIdx : -1;
+
+  const totalLines = Math.max(1, Math.ceil(events.length / LINE_SIZE));
+  const lineChunks = useMemo(() => {
+    const out = [];
+    for (let L = 0; L < totalLines; L++) out.push(events.slice(L * LINE_SIZE, L * LINE_SIZE + LINE_SIZE));
+    return out;
+  }, [events, totalLines]);
+  const playheadLine = playheadIdx >= 0 ? lineOf(playheadIdx) : (playBeat <= 0 ? 0 : totalLines - 1);
+  const playheadLocalBeat = playBeat - (starts[playheadLine * LINE_SIZE] || 0);
 
   const pushUndo = () => {
     undoStackRef.current.push({ text: textRef.current, events: eventsRef.current });
@@ -399,10 +410,20 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
                 </div>
               )}
               <div className="staff-scroll" ref={scrollRef}>
-                <div style={{ position: "relative", width: staffWidth(events), height: "100%", minHeight: 210 }}>
-                  <StaffPreview events={events} beatsPerBar={song.beats_per_bar} selectedIdx={sel} activeIdx={activeIdx} onSelect={selectAndSeek} />
-                  {events.length > 0 && <div className="staff-playhead" style={{ left: beatToX(playBeat) }} />}
-                </div>
+                {lineChunks.map((chunk, L) => {
+                  const lineStart = L * LINE_SIZE;
+                  return (
+                    <div key={L} className="staff-row" ref={(el) => { staffRowRefs.current[L] = el; }}
+                      style={{ position: "relative", width: staffWidth(chunk), minHeight: 210 }}>
+                      <StaffPreview events={chunk} beatsPerBar={song.beats_per_bar}
+                        selectedIdx={sel - lineStart} activeIdx={activeIdx - lineStart}
+                        onSelect={(i) => selectAndSeek(lineStart + i)} />
+                      {chunk.length > 0 && L === playheadLine && (
+                        <div className="staff-playhead" style={{ left: beatToX(playheadLocalBeat) }} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               {events.length === 0 && <div className="staff-empty">Teclea una tira de notas arriba para ver el pentagrama</div>}
             </div>
