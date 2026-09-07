@@ -182,6 +182,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
       // Pass the raw value through unprocessed either way and canonicalize on
       // a later keystroke once the ambiguity resolves and content is only
       // ever added, never silently lost.
+      pendingCaretRef.current = null;
       setText(v);
       setEvents(ev);
       onPatch({ strip: v, events: ev });

@@ -8,7 +8,7 @@ export function lineOf(idx, size = LINE_SIZE) {
 }
 
 export function caretTokenCount(text, caretPos) {
-  return text.slice(0, caretPos).trim().split(/\s+/).filter(Boolean).length;
+  return text.slice(0, caretPos).trim().split(/\s+/).filter(Boolean).filter((t) => t !== "|").length;
 }
 
 export function offsetForTokenCount(text, n) {
@@ -16,6 +16,7 @@ export function offsetForTokenCount(text, n) {
   const re = /\S+/g;
   let m, count = 0, end = text.length;
   while ((m = re.exec(text))) {
+    if (m[0] === "|") continue;
     count++;
     end = m.index + m[0].length;
     if (count === n) return end;
