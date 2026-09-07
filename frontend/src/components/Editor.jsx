@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useMemo, useCallback, Fragment } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, Fragment } from 'react';
 import { Icon, KeyColumn, StaffPreview, beatToX, staffWidth } from './Ui.jsx';
 import * as MUS from '../music.js';
 import * as Audio from '../audio.js';
-import { LINE_SIZE } from '../lineWrap.js';
+import { LINE_SIZE, caretTokenCount, offsetForTokenCount } from '../lineWrap.js';
 
 function findActiveIdx(beat, events, starts) {
   for (let i = 0; i < events.length; i++) {
@@ -44,6 +44,8 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const [canUndo, setCanUndo] = useState(false);
 
   const fileRef = useRef(null);
+  const textareaRef = useRef(null);
+  const pendingCaretRef = useRef(null);
   const scrollRef = useRef(null);
   const beatRef = useRef(0);
   const playingRef = useRef(false);
@@ -160,14 +162,24 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     if (selRef.current >= prev.events.length) setSel(prev.events.length - 1);
   };
 
-  const onText = (v) => {
+  const onText = (v, caretPos) => {
     pushUndo();
-    setText(v);
     const ev = MUS.reconcile(v, eventsRef.current);
+    const wrapped = MUS.serialize(ev, song.beats_per_bar, LINE_SIZE);
+    pendingCaretRef.current = offsetForTokenCount(wrapped, caretTokenCount(v, caretPos));
+    setText(wrapped);
     setEvents(ev);
-    onPatch({ strip: v, events: ev });
+    onPatch({ strip: wrapped, events: ev });
     if (selRef.current >= ev.length) setSel(ev.length - 1);
   };
+
+  useLayoutEffect(() => {
+    if (pendingCaretRef.current == null) return;
+    const pos = pendingCaretRef.current;
+    pendingCaretRef.current = null;
+    const el = textareaRef.current;
+    if (el) el.setSelectionRange(pos, pos);
+  }, [text]);
 
   const applyEvents = useCallback((next) => {
     pushUndo();
@@ -350,8 +362,9 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
                 <code>C</code> base · <code>c</code> octava arriba · <code>A,</code> abajo · <code>F#</code>/<code>Bb</code> · <code>-</code> silencio · <code>|</code> compás
               </span>
             </div>
-            <textarea className="strip-input" value={text} onChange={(e) => onText(e.target.value)}
-              spellCheck={false} placeholder="Ej.  C E G c | A, F# -" rows={2} />
+            <textarea ref={textareaRef} className="strip-input" value={text}
+              onChange={(e) => onText(e.target.value, e.target.selectionStart)}
+              spellCheck={false} placeholder="Ej.  C E G c | A, F# -" />
           </div>
 
           <div className="staff-block">
