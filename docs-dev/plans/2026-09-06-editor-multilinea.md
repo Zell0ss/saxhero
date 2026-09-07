@@ -833,10 +833,13 @@ EOF
 
 **Files:**
 - Modify: `frontend/src/components/Editor.jsx:1` (imports), `:31-61` (refs), `:203-256` (rAF effect)
+- Modify: `frontend/src/studio.css` (`.staff-scroll` — remove one property, see Step 3)
 
 **Interfaces:**
-- Consumes: `TEXT_LINE_HEIGHT_PX`, `LINE_SIZE`, `lineOf` (Task 1); `textareaRef` (Task 3); `staffRowRefs` (Task 5).
+- Consumes: `TEXT_LINE_HEIGHT_PX`, `LINE_SIZE`, `lineOf` (Task 1); `textareaRef` (Task 3); `staffRowRefs`, `scrollRef` (Task 5).
 - Produces: nothing consumed elsewhere — this is the last piece of D5.
+
+**D10 (added retroactively during Task 5's review, addressed here):** Task 5's `.staff-scroll` CSS added `scroll-behavior: smooth` for the vertical row-into-view transition this task implements (Step 4 below, `rowEl.scrollIntoView({behavior: "smooth", ...})`). But this task's horizontal follow (Step 4's `sc.scrollLeft = ...`, running every animation frame while playing) is a plain property assignment on the *same element* — the CSS `scroll-behavior: smooth` applies to that too, so every frame would start a new smooth-scroll animation that the next frame immediately interrupts: perpetual-chase jank, never converging. `scrollIntoView`'s own explicit `behavior: "smooth"` option overrides the element's CSS property for that one call regardless, so removing the CSS property doesn't lose the intended vertical smoothness — it only removes the (broken) smoothing from the per-frame horizontal assignment, which was never meant to animate anyway (it didn't, before line-wrapping — see the original pre-Task-5 code this replaced). Found by Task 5's reviewer while confirming this task's assigned work would actually be coverable; fix is Step 3 below.
 
 - [ ] **Step 1: Import `TEXT_LINE_HEIGHT_PX`**
 
@@ -856,7 +859,19 @@ Add alongside `prevActiveIdxRef` (current line 58):
   const prevLineRef = useRef(-1);
 ```
 
-- [ ] **Step 3: Replace the note-crossing + old horizontal-scroll tail of the rAF loop**
+- [ ] **Step 3: Remove `scroll-behavior: smooth` from `.staff-scroll` (D10)**
+
+In `frontend/src/studio.css`, find the `.staff-scroll` rule (added in Task 5):
+```css
+.staff-scroll { position: absolute; inset: 0; overflow: auto; scroll-behavior: smooth; padding: 6px; }
+```
+Remove `scroll-behavior: smooth;` from it:
+```css
+.staff-scroll { position: absolute; inset: 0; overflow: auto; padding: 6px; }
+```
+Nothing else in that rule changes. `.strip-input`'s own `scroll-behavior: smooth` (Task 4) is untouched — the textarea has no competing per-frame horizontal scroll, so it can keep it.
+
+- [ ] **Step 4: Replace the note-crossing + old horizontal-scroll tail of the rAF loop**
 
 Inside the rAF effect (current lines 203-256), replace this block (current lines 236-250):
 
@@ -911,26 +926,30 @@ with:
 
 Note: `st` (not the outer `starts` memo) is used deliberately — the rest of this effect already reads the freshly-recomputed local `st`/`evs` rather than the memoized outer values, since the effect has an empty dependency array and relies on refs for freshness. `scrollRef` is the same single 2-axis `.staff-scroll` container from Task 5 — horizontal follow now drives its `scrollLeft` directly (mirroring the pre-multiline code's `sc.scrollLeft` pattern), since rows don't have their own independent horizontal scroll (see Task 5's design note).
 
-- [ ] **Step 4: Verify in the browser**
+- [ ] **Step 5: Verify in the browser**
 
 Re-add the temporary proxy, open the `TEST multilinea (borrar)` song (30 notes, 180 BPM → line 1 takes 28 beats ≈ 9.3s at BPM 180 with speed 1.0 — set the speed slider to 1.0× and toggle "1-2-3-4" (skip countdown) on for a faster test loop). Click the play button, let it run past the 28th note, and confirm:
 - The textarea auto-scrolls so line 2 becomes visible right when the 29th note starts sounding.
 - The staff view auto-scrolls (or is already positioned, if it fit) so row 2 is visible at the same moment.
-- The gold playhead marker and the horizontal scroll continue to track the currently-sounding note within its row exactly as they did within a single line before this change.
+- The gold playhead marker and the horizontal scroll continue to track the currently-sounding note within its row exactly as they did within a single line before this change — smoothly for the row-into-view jump, but the per-frame horizontal follow within a row should be immediate/instant (no visible chase/lag), confirming D10's fix actually removed the jank rather than just changing its shape.
 
 Revert the `vite.config.js` proxy change before committing.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/components/Editor.jsx
+git add frontend/src/components/Editor.jsx frontend/src/studio.css
 git commit -m "$(cat <<'EOF'
-feat: auto-scroll text + staff panels on line crossing during playback (D5)
+feat: auto-scroll text + staff panels on line crossing during playback (D5, D10)
 
 Detects the line change inside the existing rAF clock (no new timer)
 and scrolls the textarea by line-height*line, plus scrollIntoView on
 the newly-active staff row. Horizontal within-row follow keeps using
 scrollRef, now computed against the active row's local beat offset.
+Drops .staff-scroll's scroll-behavior:smooth (D10) — it fought with
+this per-frame horizontal assignment on the same element; the row
+scrollIntoView call keeps its own smoothness via its explicit
+behavior:"smooth" option, unaffected by the CSS property's removal.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01GzLJquQ5cwGmfQFYQ2DLFs
