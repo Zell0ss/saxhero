@@ -165,6 +165,21 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const onText = (v, caretPos) => {
     pushUndo();
     const ev = MUS.reconcile(v, eventsRef.current);
+    const justTypedSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
+    if (justTypedSeparator) {
+      // serialize() never emits trailing whitespace, so reserializing right
+      // after the user types a bare separator would collapse it — the next
+      // keystroke's character would then land directly adjacent to the
+      // previous token (fusing them into one unparseable token, which
+      // parseStrip drops, taking the previous valid note down with it; see
+      // D7). Pass the raw value through unprocessed and canonicalize on the
+      // next keystroke that actually extends a token.
+      setText(v);
+      setEvents(ev);
+      onPatch({ strip: v, events: ev });
+      if (selRef.current >= ev.length) setSel(ev.length - 1);
+      return;
+    }
     const wrapped = MUS.serialize(ev, song.beats_per_bar, LINE_SIZE);
     pendingCaretRef.current = offsetForTokenCount(wrapped, caretTokenCount(v, caretPos));
     setText(wrapped);
