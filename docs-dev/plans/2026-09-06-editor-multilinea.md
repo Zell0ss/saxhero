@@ -305,6 +305,21 @@ with:
   const onText = (v, caretPos) => {
     pushUndo();
     const ev = MUS.reconcile(v, eventsRef.current);
+    const justTypedSeparator = caretPos > 0 && /\s/.test(v[caretPos - 1]);
+    if (justTypedSeparator) {
+      // serialize() never emits trailing whitespace, so reserializing right
+      // after the user types a bare separator would collapse it — the next
+      // keystroke's character would then land directly adjacent to the
+      // previous token (fusing them into one unparseable token, which
+      // parseStrip drops, taking the previous valid note down with it; see
+      // D7). Pass the raw value through unprocessed and canonicalize on the
+      // next keystroke that actually extends a token.
+      setText(v);
+      setEvents(ev);
+      onPatch({ strip: v, events: ev });
+      if (selRef.current >= ev.length) setSel(ev.length - 1);
+      return;
+    }
     const wrapped = MUS.serialize(ev, song.beats_per_bar, LINE_SIZE);
     pendingCaretRef.current = offsetForTokenCount(wrapped, caretTokenCount(v, caretPos));
     setText(wrapped);
@@ -313,6 +328,8 @@ with:
     if (selRef.current >= ev.length) setSel(ev.length - 1);
   };
 ```
+
+**D7 (added during Task 3 execution, supersedes this step's original text):** the first version of this step reserialized unconditionally on every keystroke. That destroyed data: typing a second note via ordinary sequential keystrokes (anywhere — mid-string or at the end, even from an empty field) silently deleted the immediately preceding valid note. Root cause: `MUS.serialize` never emits trailing/pending whitespace (`parts.join(' ')`, no trailing separator), so the live reserialize right after a bare space keystroke collapsed that space away before the next letter arrived, fusing the next character onto the previous token into a two-letter string `parseToken`'s regex (`/^([A-Ga-g])([#b]?)([,']*)$/`) rejects — `parseStrip` then silently drops the whole fused token, taking the old valid note with it. Verified via `node` before ruling (both the reported end-of-text repro and a mid-string insertion case) that skipping the reserialize specifically when the just-typed character is whitespace — deferring canonicalization to the next keystroke that actually extends a token — fixes it in both cases without reintroducing any cursor-jump risk (the skip branch passes the browser's own post-keystroke value straight through, so the caret is exactly where the browser already put it natively; no caret math needed for that branch).
 
 - [ ] **Step 4: Restore the caret after each reflow**
 
@@ -346,10 +363,11 @@ to:
 
 - [ ] **Step 6: Verify in the browser**
 
-Re-add the temporary `vite.config.js` proxy, start `npm run dev`, open the `TEST multilinea (borrar)` song from Task 2 (find it via the songs list — same idempotent lookup curl if you need its id again). Click into the "Tira de notas" textarea, place the cursor at the very end of the text, and type 3 more notes (e.g. `C E G`). Confirm:
-- The 29th, 30th, 31st events appear on what is now line 2 of the text (a `\n` shows up right after the 28th token as soon as you cross it).
+Re-add the temporary `vite.config.js` proxy, start `npm run dev`, open the `TEST multilinea (borrar)` song from Task 2 (find it via the songs list — same idempotent lookup curl if you need its id again — it has 30 events). Click into the "Tira de notas" textarea, place the cursor at the very end of the text, and type 3 more notes **as individual sequential keystrokes** (`C`, `Space`, `E`, `Space`, `G` — six separate keystrokes; whatever tool you use to type must not re-click/re-focus the element between keystrokes, since that can itself move the caret and mask what you're testing). After each keystroke, read the textarea's actual `value` (not just a screenshot) to confirm. Confirm:
+- **The event count only grows, never shrinks.** After all 6 keystrokes the "Línea de tiempo" count must read 33 events (30 + 3), not fewer. This is the case D7 exists to fix — if you see the count drop below 30 at any point (a previously-typed note disappearing), the `justTypedSeparator` branch isn't working; do not treat this as acceptable and do not "fix" it by reverting to unconditional reserialization.
+- The 29th, 30th, 31st (through 33rd) events appear on what is now line 2 of the text (a `\n` shows up right after the 28th token as soon as you cross it).
 - The cursor stays right after the last character you typed at every keystroke — it must NOT jump to the start or end of the textarea while you're still typing.
-- Typing an invalid character (e.g. `x`, which `parseToken` cannot parse) is dropped from the text on the very next keystroke — this is expected (D6's accepted tradeoff), not a bug.
+- Typing an invalid character (e.g. `x`, which `parseToken` cannot parse) is dropped from the text on the very next keystroke — this is expected (D6's accepted tradeoff), not a bug. (Note: per D7, this specific drop only fires on a keystroke that follows non-whitespace content, e.g. typing `x` right after a letter with no separator — an `x` typed right after a bare space is itself just an ordinary invalid-token keystroke and gets dropped the same way once a following separator or another keystroke triggers canonicalization.)
 
 Revert the `vite.config.js` proxy change before committing.
 
@@ -358,11 +376,16 @@ Revert the `vite.config.js` proxy change before committing.
 ```bash
 git add frontend/src/components/Editor.jsx
 git commit -m "$(cat <<'EOF'
-feat: live caret-preserving text reflow at 28 events/line
+feat: live caret-preserving text reflow at 28 events/line (D7)
 
-onText now re-serializes on every keystroke (needed for the \n wrap
-to appear live) and restores the caret by token index rather than
-raw character offset, since re-serialization can shift whitespace.
+onText re-serializes on keystrokes that extend a token (needed for
+the \n wrap to appear live) and restores the caret by token index
+rather than raw character offset, since re-serialization can shift
+whitespace. Skips reserialization on a bare separator keystroke
+(D7) — serialize() never emits trailing whitespace, so collapsing
+it immediately would fuse the next typed character onto the
+previous token and silently drop both when parseStrip rejects the
+fused token.
 
 Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01GzLJquQ5cwGmfQFYQ2DLFs

@@ -232,6 +232,17 @@ verifica en el navegador al implementarlo. Si el usuario borra o inserta un
 re-serialización lo recoloca en cuanto reconcilia — puede sorprender la
 primera vez.
 
+*Corrección real encontrada al implementar (ver D7):* re-serializar
+incondicionalmente en cada tecla rompía la escritura normal — `serialize`
+nunca emite un espacio final, así que re-serializar justo tras teclear un
+espacio suelto lo colapsaba; la siguiente tecla (la letra de la nueva nota)
+aterrizaba pegada al token anterior, formando un token inválido de 2+ letras
+que `parseToken` rechaza, y `parseStrip` lo descartaba entero — borrando
+también la nota anterior válida. `onText` ahora deja pasar el texto crudo
+sin canonicalizar cuando el carácter recién tecleado es un separador, y solo
+re-serializa+recoloca el cursor en la tecla siguiente que de verdad extienda
+un token.
+
 **Pentagrama.** Mismo troceo de 28 aplicado a `StaffPreview`: una fila SVG
 por bloque, apiladas verticalmente dentro de un contenedor con scroll
 vertical (reemplaza el scroll horizontal actual). Cada fila recibe su slice
@@ -264,3 +275,4 @@ que vertical y a nivel de línea en vez de píxel a píxel.
 | D4 | El panel de pills muestra solo la línea de `sel`; si no hay selección y está sonando, usa la línea de `activeIdx` | Mantener foco de edición sin saturar la UI con todas las líneas a la vez | vigente | 2026-09-06 |
 | D5 | Cruce de línea en reproducción: auto-scroll vertical de texto y pentagrama siguiendo el playhead | Consistencia con el auto-scroll horizontal ya validado; evita inventar un mecanismo nuevo | vigente | 2026-09-06 |
 | D6 | La tira de notas se mantiene como un único `<textarea>`; el serializador inserta `\n` cada 28 eventos y se apoya en que `parseStrip` ya trata `\n` como separador (vía `/\s+/`), sin tocar el parser | Mucho más simple que D3 (una sola caja controlada, sin migración de contenido entre elementos del DOM); el `\n` incrustado no rompe D2 porque `strip`/texto nunca se persiste en el backend | vigente | 2026-09-06 |
+| D7 | `onText` NO re-serializa en cada tecla incondicionalmente: cuando el carácter recién tecleado es un separador (espacio/`\n`), se deja pasar el texto crudo tal cual (`setText(v)`, sin canonicalizar) y solo se re-serializa+recoloca el cursor en la siguiente tecla que de verdad extienda un token | `MUS.serialize` nunca emite espacio final (`parts.join(' ')`, sin separador colgante); re-serializar justo tras un espacio suelto lo colapsaba, fusionando el siguiente carácter tecleado con el token anterior en un token de 2+ letras que `parseToken` rechaza — `parseStrip` lo descartaba entero, borrando también la nota anterior válida. Encontrado por el implementador de la Tarea 3 al escribir una segunda nota por teclas sueltas (incluso desde campo vacío); reproducido y confirmado con `node` antes de fallar sobre ello | vigente | 2026-09-07 |
