@@ -65,6 +65,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   const countdownCancelRef = useRef(false);
   const metroRef = useRef(false);
   const prevBeatFloorRef = useRef(-1);
+  const pendingFlatRef = useRef(false); // set by FLAT_TRIGGER, consumed by the next letter (see handleStripKeyDown)
 
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { loopRef.current = loop; }, [loop]);
@@ -214,6 +215,78 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
     setEvents(ev);
     onPatch({ strip: wrapped, events: ev });
     if (selRef.current >= ev.length) setSel(ev.length - 1);
+  };
+
+  // FLAT_TRIGGER: typed right before a note letter, expands to that letter + "b" (.C -> Cb).
+  // Plain, always-live ASCII, no Shift needed on ES keyboards, no prior meaning in the
+  // notation grammar — unlike ´ (a dead key on most ES/Latin layouts, see history in git
+  // blame) or , (already the octave-down suffix), it never collides with anything the OS
+  // or the parser might do with it, so it needs none of the dead-key workarounds ´ did.
+  const FLAT_TRIGGER = ".";
+  const isSpaceChar = (c) => c !== undefined && /\s/.test(c);
+
+  // Auto-space-as-you-type for the strip input: every letter/rest/bar typed at a token
+  // boundary gets its own separator inserted around it automatically, so the user never
+  // has to hit space between notes by hand. Reuses onText (and therefore the existing
+  // reconcile/serialize/caret-restore pipeline) for every edit it makes — this handler's
+  // only job is to decide *what* raw text+caret onText should see, never how to redraw it.
+  const handleStripKeyDown = (e) => {
+    const el = textareaRef.current;
+    if (!el || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+    const { selectionStart: start, selectionEnd: end, value: raw } = el;
+    if (start !== end) { pendingFlatRef.current = false; return; } // has a selection — let default replace happen
+    const key = e.key;
+    if (typeof key !== "string" || key.length !== 1) return; // ignore Backspace, ArrowLeft, Enter, etc.
+
+    // A boundary is: start/end of text, right after an existing separator, or right
+    // before one (in which case we hop past it — see D7-era caret conventions this
+    // reuses: offsetForTokenCount always lands the caret right after a token's own
+    // content, before its trailing space, so "before a pending space" is the normal
+    // resting spot right after typing a letter).
+    const boundary = () => {
+      if (start === 0 || start === raw.length || isSpaceChar(raw[start - 1])) return start;
+      if (isSpaceChar(raw[start]) && !isSpaceChar(raw[start - 1])) return start + 1;
+      return -1;
+    };
+
+    const insertToken = (token, atPos) => {
+      const lead = atPos > 0 && !isSpaceChar(raw[atPos - 1]) ? " " : "";
+      const trail = isSpaceChar(raw[atPos]) ? "" : " ";
+      const newVal = raw.slice(0, atPos) + lead + token + trail + raw.slice(atPos);
+      e.preventDefault();
+      pendingFlatRef.current = false;
+      onText(newVal, atPos + lead.length + token.length);
+    };
+
+    if (/[A-Ga-g]/.test(key)) {
+      const at = boundary();
+      if (at === -1) { pendingFlatRef.current = false; return; }
+      insertToken(pendingFlatRef.current ? key + "b" : key, at);
+      return;
+    }
+    if (key === "-" || key === "|") {
+      const at = boundary();
+      if (at === -1) { pendingFlatRef.current = false; return; }
+      insertToken(key, at);
+      return;
+    }
+    if (key === FLAT_TRIGGER) {
+      const at = boundary();
+      if (at === -1) { pendingFlatRef.current = false; return; }
+      e.preventDefault();
+      pendingFlatRef.current = true;
+      if (at !== start) el.setSelectionRange(at, at);
+      return;
+    }
+    if (key === " " && raw[start] === " ") {
+      // Redundant manual space right before one we (or the user) already placed: step over it
+      // instead of inserting a duplicate.
+      e.preventDefault();
+      pendingFlatRef.current = false;
+      el.setSelectionRange(start + 1, start + 1);
+      return;
+    }
+    pendingFlatRef.current = false;
   };
 
   useLayoutEffect(() => {
@@ -415,12 +488,13 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
             <div className="lbl-row">
               <span className="lbl">Tira de notas</span>
               <span className="hint">
-                <code>C</code> base · <code>c</code> octava arriba · <code>A,</code> abajo · <code>F#</code>/<code>Bb</code> · <code>-</code> silencio · <code>|</code> compás
+                <code>C</code> base · <code>c</code> octava arriba · <code>A,</code> abajo · <code>F#</code> sostenido · <code>.A</code> bemol (Ab) · <code>-</code> silencio · <code>|</code> compás — los espacios se añaden solos
               </span>
             </div>
             <textarea ref={textareaRef} className="strip-input" value={text}
               onChange={(e) => onText(e.target.value, e.target.selectionStart)}
-              spellCheck={false} placeholder="Ej.  C E G c | A, F# -" />
+              onKeyDown={handleStripKeyDown}
+              spellCheck={false} placeholder="Ej.  C E G c A F -" />
           </div>
 
           <div className="staff-block">
