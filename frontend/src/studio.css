@@ -367,6 +367,9 @@ input, textarea { font-family: inherit; }
 .nota .nh.sel ellipse { stroke: var(--gold); }
 .nota .clef { fill: rgba(243,239,230,0.9); font-family: var(--music); }
 .nota .restglyph { fill: var(--ink-faint); font-family: var(--music); }
+/* same font as .strip-input so the label reads exactly like the token you type */
+.nota .nlabel { fill: var(--ink-dim); font-size: 13px; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+.nota .nh.sel .nlabel, .nota .nh.active .nlabel { fill: var(--gold); font-weight: 700; }
 
 /* =========================================================
    PILL TIMELINE

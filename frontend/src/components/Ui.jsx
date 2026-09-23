@@ -73,7 +73,8 @@ export function KeyColumn({ keys = [], width = 120 }) {
 }
 
 // ---- staff geometry ----
-export const STAFF = { H: 210, BASE: 140, STEP: 9, PPB: 56, PAD_L: 72, PAD_R: 48, OFF: 18, MINW: 560 };
+export const STAFF = { H: 210, BASE: 140, STEP: 9, PPB: 56, PAD_L: 72, PAD_R: 48, OFF: 18, MINW: 560, LABEL_Y: 198 };
+// LABEL_Y sits in the free band under the lowest written note (Bb3, step -3 → y≈175)
 export const yStep = (s) => STAFF.BASE - s * STAFF.STEP;
 export const beatToX = (beat) => STAFF.PAD_L + beat * STAFF.PPB;
 export function staffWidth(events) {
@@ -150,6 +151,7 @@ export function StaffPreview({ events, beatsPerBar, selectedIdx = -1, activeIdx 
             {ev.dotted && <circle cx={x + 15} cy={cy - 2} r="2.4" fill="#fff" />}
             {ev.triplet && <text x={x - 4} y={up ? stemEnd - 6 : stemEnd + 14} fontSize="13" fill="var(--gold)" fontWeight="700">3</text>}
             {ev.acc && <text className="acc" x={x - 23} y={cy + 7} fontSize="30">{ev.acc === "#" ? "♯" : "♭"}</text>}
+            <text className="nlabel" x={x} y={STAFF.LABEL_Y} textAnchor="middle">{MUS.tokenForEvent(ev)}</text>
           </g>
         );
       })}
