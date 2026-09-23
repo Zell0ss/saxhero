@@ -222,6 +222,7 @@ export default function Editor({ song, sideOpen, onToggleSide, onPatch, onSave, 
   // notation grammar — unlike ´ (a dead key on most ES/Latin layouts, see history in git
   // blame) or , (already the octave-down suffix), it never collides with anything the OS
   // or the parser might do with it, so it needs none of the dead-key workarounds ´ did.
+  // See docs-dev/1-design.md D12 for why.
   const FLAT_TRIGGER = ".";
   const isSpaceChar = (c) => c !== undefined && /\s/.test(c);
 
